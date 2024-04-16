@@ -82,3 +82,8 @@ projects/habitat_ovmm/configs/agent/generated/*
 
 # Emacs
 *~
+
+# Remove ros2 build, install and log
+/build/*
+/install/*
+/log/*
