@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 import logging
 import threading
-import time
 from typing import Optional
 
 from rclpy.node import Node
@@ -15,13 +14,11 @@ import rclpy
 import sophus as sp
 import tf2_ros
 from geometry_msgs.msg import (
-    Pose,
     PoseStamped,
     PoseWithCovarianceStamped,
     TransformStamped,
 )
 from nav_msgs.msg import Odometry
-from scipy.spatial.transform import Rotation as R
 
 from robot_hw_python.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 
@@ -35,6 +32,8 @@ def cutoff_angle(duration, cutoff_freq):
 
 
 class NavStateEstimator(Node):
+    """Node that publishes transform between map and base_link"""
+    
     def __init__(self, trust_slam: bool = False, use_history: bool = True):
         """Create nav state estimator.
 
