@@ -14,14 +14,28 @@ from ament_index_python import get_package_share_directory
 
 
 def generate_launch_description():
+    stretch_core_path = get_package_share_directory('stretch_core')
+    stretch_navigation_path = get_package_share_directory('stretch_nav2')
     start_robot_arg = DeclareLaunchArgument("start_robot", default_value="false")
     rviz_arg = DeclareLaunchArgument("rviz", default_value="false")
 
+    declare_use_sim_time_argument = DeclareLaunchArgument(
+        'use_sim_time',
+        default_value='false',
+        description='Use simulation/Gazebo clock')
+
+    declare_slam_params_file_cmd = DeclareLaunchArgument(
+        'slam_params_file',
+        default_value=os.path.join(stretch_navigation_path,
+                                   'config', 'mapper_params_online_async.yaml'),
+        description='Full path to the ROS2 parameters file to use for the slam_toolbox node')
+        
     stretch_driver_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
             get_package_share_directory('stretch_core'),
-            'launch/stretch_driver.launch.py'))
+            'launch/stretch_driver.launch.py')),
+            launch_arguments={'mode': 'navigation', 'broadcast_odom_tf': 'True'}.items()
     )
     
     realsense_launch = IncludeLaunchDescription(
@@ -38,12 +52,26 @@ def generate_launch_description():
             'launch/rplidar.launch.py'))
     )
 
+    offline_mapping_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            [get_package_share_directory('slam_toolbox'), '/launch/offline_launch.py']
+            )
+        )
 
-    rviz_launch = IncludeLaunchDescription(
+    # rviz_launch = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         os.path.join(
+    #             get_package_share_directory("robot_hw_python"),
+    #             'launch/visualization.launch.py'
+    #         )
+    #     )
+    # )
+
+    nav2_offline_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
-                get_package_share_directory("robot_hw_python"),
-                'launch/visualization.launch.py'
+                get_package_share_directory("stretch_nav2"),
+                'launch/offline_mapping.launch.py'
             )
         )
     )
@@ -54,10 +82,20 @@ def generate_launch_description():
         name="camera_pose_publisher"
     )
 
+    state_estimator = Node(
+        package="robot_hw_python",
+        executable="state_estimator",
+        name="state_estimator"
+    )
+
     return LaunchDescription([
         # start_robot_arg,
         stretch_driver_launch,
+        offline_mapping_launch,
         realsense_launch,
-        # lidar_launch,
-        camera_pose_publisher
+        lidar_launch,
+        camera_pose_publisher,
+        state_estimator,
+        declare_use_sim_time_argument,
+        declare_slam_params_file_cmd
     ])

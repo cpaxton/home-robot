@@ -2,10 +2,12 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import logging
 import numpy as np
 import trimesh.transformations as tra
 from geometry_msgs.msg import Point, Pose, Quaternion, Transform
 
+log = logging.getLogger(__name__)
 
 def theta_to_quaternion_msg(theta):
     T = tra.euler_matrix(0, 0, theta)
@@ -31,8 +33,11 @@ def matrix_from_pose_msg(msg):
 def matrix_to_pose_msg(matrix):
     pose = Pose()
     w, x, y, z = tra.quaternion_from_matrix(matrix)
-    pose.orientation = Quaternion(x, y, z, w)
-    pose.position = Point(*matrix[:3, 3].tolist())
+
+    # Direct initialization not working for Quaternion and Point -> Quaternion(x, y, z, w) and Point(x, y, z)
+    pose.orientation = Quaternion(x=x*1.0, y=y*1.0, z=z*1.0, w=w*1.0)
+    xyz = matrix[:3, 3].tolist()
+    pose.position = Point(x=xyz[0], y=xyz[1], z=xyz[2])
     return pose
 
 
