@@ -25,7 +25,8 @@ setup(
         'console_scripts': [
             "camera_pose_publisher = robot_hw_python.nodes.camera_pose_publisher:main",
             "rotate_images = scripts.rotate_images",
-            "state_estimator = robot_hw_python.nodes.state_estimator:main"
+            "state_estimator = robot_hw_python.nodes.state_estimator:main",
+            "goto_controller = robot_hw_python.nodes.goto_controller:main"
         ],
     },
 )

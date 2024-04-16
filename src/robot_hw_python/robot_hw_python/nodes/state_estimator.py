@@ -200,7 +200,7 @@ class NavStateEstimator(Node):
         # Run
         log.info("State Estimator launched.")
 
-def main(args=None):
+def main():
     rclpy.init()
 
     state_estimator = NavStateEstimator()
