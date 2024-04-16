@@ -84,6 +84,17 @@ def to_pos_quat(matrix):
     return pos, np.array([x, y, z, w])
 
 
+def transform_to_list(transform):
+    """Converts tf2 transform to position and rotation lists"""
+
+    rot = transform.transform.rotation
+    trans = transform.transform.translation
+
+    rot = [rot.w, rot.x, rot.y, rot.z]
+    trans = [trans.x, trans.y, trans.z]
+
+    return trans, rot
+
 def to_matrix(pos, rot, trimesh_format=False) -> np.ndarray:
     """converts pos, quat to matrix format"""
     if trimesh_format:

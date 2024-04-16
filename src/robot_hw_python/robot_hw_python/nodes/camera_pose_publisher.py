@@ -13,7 +13,7 @@ from geometry_msgs.msg import PoseStamped
 from home_robot.motion.stretch import (
     STRETCH_CAMERA_FRAME,
 )
-from home_robot.utils.pose import to_matrix
+from home_robot.utils.pose import to_matrix, transform_to_list
 from robot_hw_python.ros.utils import matrix_to_pose_msg
 
 
@@ -37,18 +37,18 @@ class CameraPosePublisher(Node):
         """Transform Callback"""
 
         try:
-            t = self.tf_buffer.lookup_transform("map", STRETCH_CAMERA_FRAME, rclpy.time.Time())
-            trans, rot = t.transform.translation, t.transform.rotation
-            self.get_logger().info(f"translation matrix {trans}")
-            self.get_logger().info(f"rotation matrix {rot}")
+            # Added transform_to_list function to handle change in return type of tf2 lookup_transform
+            trans, rot = transform_to_list(
+                self.tf_buffer.lookup_transform("map", STRETCH_CAMERA_FRAME, rclpy.time.Time())
+            )
             matrix = to_matrix(trans, rot)
 
             # We rotate by 90 degrees from the frame of realsense hardware since we are also rotating images to be upright
             matrix_rotated = matrix @ tra.euler_matrix(0, 0, -np.pi / 2)
 
             msg = PoseStamped(pose=matrix_to_pose_msg(matrix_rotated))
-            msg.header.stamp = self.get_clock().now()
-            msg.header.seq = self._seq
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = str(self._seq)
             self._pub.publish(msg)
             self._seq += 1
         except TransformException as ex:
