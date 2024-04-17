@@ -60,7 +60,7 @@ class RosLidar(object):
         """Wait for image. Needs to be sort of slow, in order to make sure we give it time
         to update the image in the backend."""
         rate = rospy.Rate(5)
-        while rclpy.ok():
+        while not rospy.is_shutdown():
             with self._lock:
                 if self._points is not None:
                     break

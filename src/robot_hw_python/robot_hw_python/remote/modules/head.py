@@ -5,7 +5,6 @@
 from typing import Optional, Tuple
 
 import numpy as np
-import rospy
 import trimesh.transformations as tra
 
 from home_robot.motion.robot import RobotModel
