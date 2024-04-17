@@ -5,7 +5,7 @@
 from typing import Iterable, List
 
 import numpy as np
-import rospy
+import rclpy
 from geometry_msgs.msg import Twist
 from home_robot.motion.robot import RobotModel
 from home_robot.utils.geometry import (
@@ -14,10 +14,10 @@ from home_robot.utils.geometry import (
     xyt2sophus,
     xyt_base_to_global,
 )
-from std_srvs.srv import SetBoolRequest, TriggerRequest
+from std_srvs.srv import SetBool, Trigger
 
-from home_robot_hw.constants import T_LOC_STABILIZE
-from home_robot_hw.ros.utils import matrix_to_pose_msg
+from robot_hw_python.constants import T_LOC_STABILIZE
+from robot_hw_python.ros.utils import matrix_to_pose_msg
 
 from .abstract import AbstractControlModule, enforce_enabled
 
@@ -36,14 +36,16 @@ class StretchNavigationClient(AbstractControlModule):
 
     def _enable_hook(self) -> bool:
         """Called when interface is enabled."""
-        result = self._ros_client.nav_mode_service(TriggerRequest())
-        rospy.loginfo(result.message)
+        result = self._ros_client.nav_mode_service(Trigger.Request())
+        self._ros_client.get_logger().info(result.message)
         return result.success
 
     def _disable_hook(self) -> bool:
         """Called when interface is disabled."""
-        result = self._ros_client.goto_off_service(TriggerRequest())
-        rospy.sleep(T_LOC_STABILIZE)  # wait for robot movement to stop
+        result = self._ros_client.goto_off_service(Trigger.Request())
+
+        rate = self._ros_client.create_rate(1 / T_LOC_STABILIZE)
+        rate.sleep()  # wait for robot movement to stop
         return result.success
 
     # Interface methods
@@ -59,7 +61,7 @@ class StretchNavigationClient(AbstractControlModule):
         """Returns true if the agent is currently at its goal location"""
         if (
             self._ros_client._goal_reset_t is not None
-            and (rospy.Time.now() - self._ros_client._goal_reset_t).to_sec()
+            and (self._ros_client.get_clock().now() - self._ros_client._goal_reset_t) * 1e-9
             > self._ros_client.msg_delay_t
         ):
             return self._ros_client.at_goal
@@ -86,13 +88,13 @@ class StretchNavigationClient(AbstractControlModule):
 
         Returns:
             success: did we reach waypoint in time"""
-        rate = rospy.Rate(rate)
+        rate = self._ros_client.create_rate(rate)
         xy = xyt[:2]
         if verbose:
             print("Waiting for", xyt, "threshold =", pos_err_threshold)
         # Save start time for exiting trajectory loop
-        t0 = rospy.Time.now()
-        while not rospy.is_shutdown():
+        t0 = self._ros_client.get_clock().now()
+        while rclpy.ok():
             # Loop until we get there (or time out)
             curr = self.get_base_pose()
             pos_err = np.linalg.norm(xy - curr[:2])
@@ -102,9 +104,9 @@ class StretchNavigationClient(AbstractControlModule):
             if pos_err < pos_err_threshold and rot_err < rot_err_threshold:
                 # We reached the goal position
                 return True
-            t1 = rospy.Time.now()
+            t1 = self._ros_client.get_clock().now()
             if (t1 - t0).to_sec() > timeout:
-                rospy.logerr("Could not reach goal in time: " + str(xyt))
+                self._ros_client.get_logger().info("Could not reach goal in time: " + str(xyt))
                 return False
             rate.sleep()
 
@@ -145,7 +147,7 @@ class StretchNavigationClient(AbstractControlModule):
         msg.linear.x = v
         msg.angular.z = w
 
-        self._ros_client.goto_off_service(TriggerRequest())
+        self._ros_client.goto_off_service(Trigger.Request())
         self._ros_client.velocity_pub.publish(msg)
 
     @enforce_enabled
@@ -167,7 +169,7 @@ class StretchNavigationClient(AbstractControlModule):
             raise NotImplementedError("Obstacle avoidance unavailable.")
 
         # Set yaw tracking
-        self._ros_client.set_yaw_service(SetBoolRequest(data=(not position_only)))
+        self._ros_client.set_yaw_service(SetBool.Request(data=(not position_only)))
 
         # Compute absolute goal
         if relative:
@@ -185,7 +187,7 @@ class StretchNavigationClient(AbstractControlModule):
         self._ros_client.goal_visualizer(goal_matrix)
         msg = matrix_to_pose_msg(goal_matrix)
 
-        self._ros_client.goto_on_service(TriggerRequest())
+        self._ros_client.goto_on_service(Trigger.Request())
         self._ros_client.goal_pub.publish(msg)
 
         self._register_wait(self._wait_for_goal_reached)
@@ -200,19 +202,21 @@ class StretchNavigationClient(AbstractControlModule):
 
     def _wait_for_pose(self):
         """wait until we have an accurate pose estimate"""
-        rate = rospy.Rate(10)
-        while not rospy.is_shutdown():
+        rate = self._ros_client.create_rate(10)
+        while rclpy.ok():
             if self._ros_client.se3_base_filtered is not None:
                 break
             rate.sleep()
 
     def _wait_for_goal_reached(self, verbose: bool = False):
         """Wait until goal is reached"""
-        rospy.sleep(self._ros_client.msg_delay_t)
-        rate = rospy.Rate(self.block_spin_rate)
-        t0 = rospy.Time.now()
-        while not rospy.is_shutdown():
-            t1 = rospy.Time.now()
+        rate = self._ros_client.create_rate(1 / self._ros_client.msg_delay_t)
+        rate.sleep(self._ros_client.msg_delay_t)
+
+        rate = self._ros_client.create_rate(self.block_spin_rate)
+        t0 = self._ros_client.get_clock().now()
+        while rclpy.ok():
+            t1 = self._ros_client.get_clock().now()
             if verbose:
                 print(
                     "...waited for controller",
