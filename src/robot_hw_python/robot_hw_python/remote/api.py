@@ -5,9 +5,7 @@
 from typing import Dict, Iterable, List, Optional
 
 import numpy as np
-import rospy
 import torch
-
 from home_robot.core.interfaces import Observations
 from home_robot.core.robot import ControlMode, RobotClient
 from home_robot.motion.robot import RobotModel
@@ -49,9 +47,6 @@ class StretchClient(RobotClient):
         Based on this code:
         https://github.com/hello-robot/stretch_ros/blob/master/hello_helpers/src/hello_helpers/hello_misc.py
         """
-        # Ros
-        if init_node:
-            rospy.init_node("stretch_user_client")
 
         if camera_overrides is None:
             camera_overrides = {}
@@ -166,26 +161,20 @@ class StretchClient(RobotClient):
         """Move the arm and head into manip mode posture: gripper down, head facing the gripper."""
         self.switch_to_manipulation_mode()
         self.head.look_at_ee(blocking=False)
-        self.manip.goto_joint_positions(
-            self.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
-        )
+        self.manip.goto_joint_positions(self.manip._extract_joint_pos(STRETCH_PREGRASP_Q))
         print("- Robot switched to manipulation mode.")
 
     def move_to_demo_pregrasp_posture(self):
         """Move the arm and head into pre-demo posture: gripper straight, arm way down, head facing the gripper."""
         self.switch_to_manipulation_mode()
         self.head.look_at_ee(blocking=False)
-        self.manip.goto_joint_positions(
-            self.manip._extract_joint_pos(STRETCH_DEMO_PREGRASP_Q)
-        )
+        self.manip.goto_joint_positions(self.manip._extract_joint_pos(STRETCH_DEMO_PREGRASP_Q))
 
     def move_to_pre_demo_posture(self):
         """Move the arm and head into pre-demo posture: gripper straight, arm way down, head facing the gripper."""
         self.switch_to_manipulation_mode()
         self.head.look_at_ee(blocking=False)
-        self.manip.goto_joint_positions(
-            self.manip._extract_joint_pos(STRETCH_PREDEMO_Q)
-        )
+        self.manip.goto_joint_positions(self.manip._extract_joint_pos(STRETCH_PREDEMO_Q))
 
     def move_to_nav_posture(self):
         """Move the arm and head into nav mode. The head will be looking front."""
@@ -193,9 +182,7 @@ class StretchClient(RobotClient):
         # First retract the robot's joints
         self.switch_to_manipulation_mode()
         self.head.look_front(blocking=False)
-        self.manip.goto_joint_positions(
-            self.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
-        )
+        self.manip.goto_joint_positions(self.manip._extract_joint_pos(STRETCH_NAVIGATION_Q))
         self.switch_to_navigation_mode()
         print("- Robot switched to navigation mode.")
 
@@ -203,9 +190,7 @@ class StretchClient(RobotClient):
         """Move the arm to nav mode, head to nav mode with PREGRASP's tilt. The head will be looking front."""
         self.switch_to_manipulation_mode()
         self.head.look_front(blocking=False)
-        self.manip.goto_joint_positions(
-            self.manip._extract_joint_pos(STRETCH_POSTNAV_Q)
-        )
+        self.manip.goto_joint_positions(self.manip._extract_joint_pos(STRETCH_POSTNAV_Q))
         self.switch_to_navigation_mode()
 
     def get_base_pose(self) -> np.ndarray:
@@ -233,7 +218,8 @@ class StretchClient(RobotClient):
         """Get an observation from the current robot.
 
         Parameters:
-            rotate_head_pts: this is true to put things into the same format as Habitat; generally we do not want to do this"""
+            rotate_head_pts: this is true to put things into the same format as Habitat; generally we do not want to do this
+        """
         rgb, depth, xyz = self.head.get_images(
             compute_xyz=True,
         )
