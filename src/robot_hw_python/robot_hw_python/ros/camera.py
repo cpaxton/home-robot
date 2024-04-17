@@ -101,7 +101,7 @@ class RosCamera(Camera):
     def wait_for_camera_info(self):
         """Wait until you get the camera info"""
 
-        rate = self._ros_client.rate(1)
+        rate = self._ros_client.create_rate(100)
         while self.camera_info is not None:
             rate.sleep()
 

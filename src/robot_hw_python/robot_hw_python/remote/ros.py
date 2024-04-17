@@ -27,6 +27,8 @@ from std_msgs.msg import Bool, Empty, Float32, String
 from std_srvs.srv import SetBool, Trigger
 from tf2_ros import TransformException
 from trajectory_msgs.msg import JointTrajectoryPoint
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
 
 from robot_hw_python.constants import (
     CONFIG_TO_ROS,
@@ -80,6 +82,7 @@ class StretchRosInterface(Node):
         lidar_topic: Optional[str] = None,
         verbose: bool = False,
     ):
+        super().__init__("stretch_user_client")
         # Verbosity for the ROS client
         self.verbose = verbose
 
@@ -242,8 +245,8 @@ class StretchRosInterface(Node):
     def _create_pubs_subs(self):
         """create ROS publishers and subscribers - only call once"""
         # Create the tf2 buffer first, used in camera init
-        self.tf2_buffer = tf2_ros.Buffer()
-        self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer, self)
+        self.tf2_buffer = Buffer()
+        self.tf2_listener = TransformListener(self.tf2_buffer, self)
 
         # Create command publishers
         self.goal_pub = self.create_publisher(Pose, "goto_controller/goal", 1)
@@ -268,14 +271,14 @@ class StretchRosInterface(Node):
         self.location_above_surface_m = None
         self.place_enable_pub = self.create_publisher(Float32, "place_point/enable", 1)
         self.place_ready_sub = self.create_subscription(
-            "place_point/ready", Empty, self._place_ready_callback, 10
+            Empty, "place_point/ready", self._place_ready_callback, 10
         )  # Had to check qos_profile
         self.place_disable_pub = self.create_publisher(Empty, "place_point/disable", 1)
         self.place_trigger_pub = self.create_publisher(
             PointStamped, "place_point/trigger_place_point", 1
         )
         self.place_result_sub = self.create_subscription(
-            "place_point/result", Empty, self._place_result_callback, 10
+             Empty, "place_point/result", self._place_result_callback, 10
         )  # Had to check qos_profile
 
         # Create subscribers
