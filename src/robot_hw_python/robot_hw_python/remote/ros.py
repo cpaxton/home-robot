@@ -10,7 +10,7 @@ import numpy as np
 
 # from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 import rclpy
-import ros_numpy
+import ros2_numpy
 import sophus as sp
 import tf2_ros
 from control_msgs.action import FollowJointTrajectory
@@ -432,7 +432,7 @@ class StretchRosInterface(Node):
             stamped_transform = self.tf2_buffer.lookup_transform(
                 base_frame, frame, lookup_time, timeout_ros
             )
-            pose_mat = ros_numpy.numpify(stamped_transform.transform)
+            pose_mat = ros2_numpy.numpify(stamped_transform.transform)
         except TransformException:
             print("!!! Lookup failed from", base_frame, "to", frame, "!!!")
             return None

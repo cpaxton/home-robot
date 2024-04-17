@@ -8,7 +8,7 @@ import abc
 import threading
 from typing import Callable
 
-import rospy
+# import rospy
 
 
 def enforce_enabled(func):
@@ -19,7 +19,8 @@ def enforce_enabled(func):
             return func(self, *args, **kwargs)
         else:
             err_str = f"{type(self).__name__}.{func.__name__} is only available in when the corresponding control mode is active."
-            rospy.logerr(err_str)
+            # rospy.logerr(err_str)
+            print(err_str) # Had to be changed
             raise TypeError(err_str)
 
     return wrapper
