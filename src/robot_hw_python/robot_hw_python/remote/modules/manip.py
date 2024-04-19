@@ -39,7 +39,7 @@ class StretchManipulationClient(AbstractControlModule):
     def _enable_hook(self) -> bool:
         """Called when interface is enabled."""
         # Switch interface mode & print messages
-        result = self._ros_client.pos_mode_service(Trigger.Request())
+        result = self._ros_client.pos_mode_service.call(Trigger.Request())
         self._ros_client.get_logger().info(result.message)
         self.base_x = 0.0
 

@@ -41,7 +41,7 @@ class RosCamera(Camera):
         self._img = None
         self._t = Time()
         self._lock = threading.Lock()
-        self._camera_info_topic = "/camera" + name + "/camera_info"
+        self._camera_info_topic = name + "/camera_info"
 
         if verbose:
             print("Waiting for camera info on", self._camera_info_topic + "...")
@@ -91,7 +91,10 @@ class RosCamera(Camera):
             print(cam_info)
             print("---------------")
         self.frame_id = cam_info.header.frame_id
-        self.topic_name = name + "/image_raw"
+        if self.name.split("/")[3] == "color":
+            self.topic_name = name + "/image_raw"
+        else:
+            self.topic_name = name + "/image_rect_raw"
         self._sub = self._ros_client.create_subscription(Image, self.topic_name, self._cb, 1)
 
     def cam_info_callback(self, msg):

@@ -36,13 +36,13 @@ class StretchNavigationClient(AbstractControlModule):
 
     def _enable_hook(self) -> bool:
         """Called when interface is enabled."""
-        result = self._ros_client.nav_mode_service(Trigger.Request())
+        result = self._ros_client.nav_mode_service.call(Trigger.Request())
         self._ros_client.get_logger().info(result.message)
         return result.success
 
     def _disable_hook(self) -> bool:
         """Called when interface is disabled."""
-        result = self._ros_client.goto_off_service(Trigger.Request())
+        result = self._ros_client.goto_off_service.call(Trigger.Request())
 
         rate = self._ros_client.create_rate(1 / T_LOC_STABILIZE)
         rate.sleep()  # wait for robot movement to stop
@@ -147,7 +147,7 @@ class StretchNavigationClient(AbstractControlModule):
         msg.linear.x = v
         msg.angular.z = w
 
-        self._ros_client.goto_off_service(Trigger.Request())
+        self._ros_client.goto_off_service.call(Trigger.Request())
         self._ros_client.velocity_pub.publish(msg)
 
     @enforce_enabled
@@ -169,7 +169,7 @@ class StretchNavigationClient(AbstractControlModule):
             raise NotImplementedError("Obstacle avoidance unavailable.")
 
         # Set yaw tracking
-        self._ros_client.set_yaw_service(SetBool.Request(data=(not position_only)))
+        self._ros_client.set_yaw_service.call(SetBool.Request(data=(not position_only)))
 
         # Compute absolute goal
         if relative:
@@ -187,7 +187,7 @@ class StretchNavigationClient(AbstractControlModule):
         self._ros_client.goal_visualizer(goal_matrix)
         msg = matrix_to_pose_msg(goal_matrix)
 
-        self._ros_client.goto_on_service(Trigger.Request())
+        self._ros_client.goto_on_service.call(Trigger.Request())
         self._ros_client.goal_pub.publish(msg)
 
         self._register_wait(self._wait_for_goal_reached)

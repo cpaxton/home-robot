@@ -6,7 +6,6 @@ from typing import Optional, Tuple
 
 import numpy as np
 import trimesh.transformations as tra
-
 from home_robot.motion.robot import RobotModel
 from home_robot.motion.stretch import HelloStretchIdx
 
@@ -107,9 +106,7 @@ class StretchHeadClient(AbstractControlModule):
 
         # Compute point cloud from depth image
         if compute_xyz:
-            xyz = self._ros_client.dpt_cam.depth_to_xyz(
-                self._ros_client.dpt_cam.fix_depth(dpt)
-            )
+            xyz = self._ros_client.dpt_cam.depth_to_xyz(self._ros_client.dpt_cam.fix_depth(dpt))
             imgs = [rgb, dpt, xyz]
         else:
             imgs = [rgb, dpt]
@@ -119,9 +116,7 @@ class StretchHeadClient(AbstractControlModule):
 
     def depth_to_xyz(self, dpt: np.ndarray) -> np.ndarray:
         """Convert depth to xyz coordinates"""
-        xyz = self._ros_client.dpt_cam.depth_to_xyz(
-            self._ros_client.dpt_cam.fix_depth(dpt)
-        )
+        xyz = self._ros_client.dpt_cam.depth_to_xyz(self._ros_client.dpt_cam.fix_depth(dpt))
         return xyz
 
     # Helper methods

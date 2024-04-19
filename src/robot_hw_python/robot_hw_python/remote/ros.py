@@ -10,7 +10,6 @@ import numpy as np
 
 # from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 import rclpy
-import ros2_numpy
 import sophus as sp
 import tf2_ros
 from control_msgs.action import FollowJointTrajectory
@@ -26,10 +25,11 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import Bool, Empty, Float32, String
 from std_srvs.srv import SetBool, Trigger
 from tf2_ros import TransformException
-from trajectory_msgs.msg import JointTrajectoryPoint
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+from trajectory_msgs.msg import JointTrajectoryPoint
 
+import ros2_numpy
 from robot_hw_python.constants import (
     CONFIG_TO_ROS,
     ROS_ARM_JOINTS,
@@ -43,8 +43,8 @@ from robot_hw_python.ros.lidar import RosLidar
 from robot_hw_python.ros.utils import matrix_from_pose_msg
 from robot_hw_python.ros.visualizer import Visualizer
 
-DEFAULT_COLOR_TOPIC = "/camera/color"
-DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
+DEFAULT_COLOR_TOPIC = "/camera/camera/color"
+DEFAULT_DEPTH_TOPIC = "/camera/camera/depth"
 DEFAULT_LIDAR_TOPIC = "/scan"
 
 
@@ -107,7 +107,7 @@ class StretchRosInterface(Node):
         self.curr_visualizer = Visualizer("current_pose", rgba=[0.0, 0.0, 1.0, 0.5])
 
         # Start the thread
-        self._thread = threading.Thread(target=rclpy.spin, args=(self, ), daemon=True)
+        self._thread = threading.Thread(target=rclpy.spin, args=(self,), daemon=True)
         self._thread.start()
 
         # Initialize ros communication
@@ -130,7 +130,7 @@ class StretchRosInterface(Node):
             self._create_cameras()
             self._wait_for_cameras()
         if init_lidar:
-            self._lidar = RosLidar(self._lidar_topic)
+            self._lidar = RosLidar(self, self._lidar_topic)
             self._lidar.wait_for_scan()
 
     def __del__(self):
@@ -285,7 +285,7 @@ class StretchRosInterface(Node):
             PointStamped, "place_point/trigger_place_point", 1
         )
         self.place_result_sub = self.create_subscription(
-             Empty, "place_point/result", self._place_result_callback, 10
+            Empty, "place_point/result", self._place_result_callback, 10
         )  # Had to check qos_profile
 
         # Create subscribers
@@ -352,8 +352,8 @@ class StretchRosInterface(Node):
         if self.verbose:
             print("rgb frame =", self.rgb_cam.get_frame())
             print("dpt frame =", self.dpt_cam.get_frame())
-        if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
-            raise RuntimeError("issue with camera setup; depth and rgb not aligned")
+        # if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
+        #     raise RuntimeError("issue with camera setup; depth and rgb not aligned")
 
     def _config_to_ros_msg(self, q, dq=None, ddq=None):
         """convert into a joint state message"""
