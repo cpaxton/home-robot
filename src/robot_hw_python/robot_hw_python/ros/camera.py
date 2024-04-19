@@ -65,10 +65,10 @@ class RosCamera(Camera):
 
         # Get camera information
         self.distortion_model = cam_info.distortion_model
-        self.D = np.array(cam_info.D)  # Distortion parameters
-        self.K = np.array(cam_info.K).reshape(3, 3)
-        self.R = np.array(cam_info.R).reshape(3, 3)  # Rectification matrix
-        self.P = np.array(cam_info.P).reshape(3, 4)  # Projection/camera matrix
+        self.D = np.array(cam_info.d)  # Distortion parameters
+        self.K = np.array(cam_info.k).reshape(3, 3)
+        self.R = np.array(cam_info.r).reshape(3, 3)  # Rectification matrix
+        self.P = np.array(cam_info.p).reshape(3, 4)  # Projection/camera matrix
 
         if self.rotations % 2 != 0:
             self.K[0, 0], self.K[1, 1] = self.K[1, 1], self.K[0, 0]
