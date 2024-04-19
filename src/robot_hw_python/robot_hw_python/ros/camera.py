@@ -6,11 +6,12 @@ import threading
 from collections import deque
 
 import numpy as np
-import rospy
+import rclpy
 from home_robot.utils.image import Camera
+from rclpy.time import Time
 from sensor_msgs.msg import CameraInfo, Image
 
-from home_robot_hw.ros.msg_numpy import image_to_numpy
+from robot_hw_python.ros.msg_numpy import image_to_numpy
 
 
 class RosCamera(Camera):
@@ -18,6 +19,7 @@ class RosCamera(Camera):
 
     def __init__(
         self,
+        ros_client,
         name: str = "/camera/color",
         verbose: bool = False,
         rotations: int = 0,
@@ -30,18 +32,26 @@ class RosCamera(Camera):
             rotations: Number of counterclockwise rotations for the output image array
             buffer_size: Size of buffer for intialization and filtering
         """
+
+        self._ros_client = ros_client
         self.name = name
         self.rotations = rotations
 
         # Initialize
         self._img = None
-        self._t = rospy.Time(0)
+        self._t = Time()
         self._lock = threading.Lock()
         self._camera_info_topic = name + "/camera_info"
 
         if verbose:
             print("Waiting for camera info on", self._camera_info_topic + "...")
-        cam_info = rospy.wait_for_message(self._camera_info_topic, CameraInfo)
+
+        self.camera_info = None
+        self._ros_client.create_subscription(
+            CameraInfo, self._camera_info_topic, self.cam_info_callback, 1
+        )
+        self.wait_for_camera_info()
+        cam_info = self.camera_info
 
         # Buffer
         self.buffer_size = buffer_size
@@ -82,7 +92,18 @@ class RosCamera(Camera):
             print("---------------")
         self.frame_id = cam_info.header.frame_id
         self.topic_name = name + "/image_raw"
-        self._sub = rospy.Subscriber(self.topic_name, Image, self._cb, queue_size=1)
+        self._sub = self._ros_client.create_subscription(Image, self.topic_name, self._cb, 1)
+
+    def cam_info_callback(self, msg):
+        """Camer aInfo callback"""
+        self.camera_info = msg
+
+    def wait_for_camera_info(self):
+        """Wait until you get the camera info"""
+
+        rate = self._ros_client.create_rate(100)
+        while self.camera_info is not None:
+            rate.sleep()
 
     def _cb(self, msg):
         """capture the latest image and save it"""
@@ -131,8 +152,8 @@ class RosCamera(Camera):
         """Wait for image. Needs to be sort of slow, in order to make sure we give it time
         to update the image in the backend."""
         # rospy.sleep(0.2)
-        rate = rospy.Rate(5)
-        while not rospy.is_shutdown():
+        rate = self._ros_client.create_rate(5)
+        while rclpy.ok():
             with self._lock:
                 if self.buffer_size is None:
                     if self._img is not None:

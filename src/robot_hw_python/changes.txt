@@ -1,0 +1,6 @@
+Direct initialization not working for Quaternion and Point -> Quaternion(x, y, z, w) and Point(x, y, z) [ros/utils.py]
+Node.get_clock().now() alternative for rclpy.Time [nodes/state_estimator.py]
+self.get_clock().now().to_msg() when passing to msg.header.stamp
+
+transform_to_list function [ros/utils.py]
+PoseStamped.seq -> PoseStamped.frame_id ? [nodes/camera_pose_publisher.py]
