@@ -106,6 +106,10 @@ class StretchRosInterface(Node):
         self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
         self.curr_visualizer = Visualizer("current_pose", rgba=[0.0, 0.0, 1.0, 0.5])
 
+        # Start the thread
+        self._thread = threading.Thread(target=rclpy.spin, args=(self, ), daemon=True)
+        self._thread.start()
+
         # Initialize ros communication
         # self._safety_check()
         self._create_pubs_subs()
@@ -128,6 +132,9 @@ class StretchRosInterface(Node):
         if init_lidar:
             self._lidar = RosLidar(self._lidar_topic)
             self._lidar.wait_for_scan()
+
+    def __del__(self):
+        self._thread.join()
 
     # Interfaces
 

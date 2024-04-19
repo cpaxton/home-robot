@@ -41,14 +41,14 @@ class RosCamera(Camera):
         self._img = None
         self._t = Time()
         self._lock = threading.Lock()
-        self._camera_info_topic = name + "/camera_info"
+        self._camera_info_topic = "/camera" + name + "/camera_info"
 
         if verbose:
             print("Waiting for camera info on", self._camera_info_topic + "...")
 
         self.camera_info = None
-        self._ros_client.create_subscription(
-            CameraInfo, self._camera_info_topic, self.cam_info_callback, 1
+        self._info_sub = self._ros_client.create_subscription(
+            CameraInfo, self._camera_info_topic, self.cam_info_callback, 100
         )
         self.wait_for_camera_info()
         cam_info = self.camera_info
@@ -95,14 +95,15 @@ class RosCamera(Camera):
         self._sub = self._ros_client.create_subscription(Image, self.topic_name, self._cb, 1)
 
     def cam_info_callback(self, msg):
-        """Camer aInfo callback"""
+        """Camera Info callback"""
+        print(msg)
         self.camera_info = msg
 
     def wait_for_camera_info(self):
         """Wait until you get the camera info"""
 
         rate = self._ros_client.create_rate(100)
-        while self.camera_info is not None:
+        while self.camera_info is None:
             rate.sleep()
 
     def _cb(self, msg):
