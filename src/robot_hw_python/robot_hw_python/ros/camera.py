@@ -96,7 +96,6 @@ class RosCamera(Camera):
 
     def cam_info_callback(self, msg):
         """Camera Info callback"""
-        print(msg)
         self.camera_info = msg
 
     def wait_for_camera_info(self):
