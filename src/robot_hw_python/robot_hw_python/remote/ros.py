@@ -19,6 +19,7 @@ from home_robot.motion.stretch import STRETCH_HEAD_CAMERA_ROTATIONS, HelloStretc
 from home_robot.utils.pose import to_matrix
 from nav_msgs.msg import Odometry
 from rclpy.action import ActionClient
+from rclpy.clock import ClockType
 from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.time import Time
@@ -99,9 +100,9 @@ class StretchRosInterface(Node):
         self.se3_camera_pose: Optional[sp.SE3] = None
         self.at_goal: bool = False
 
-        self.last_odom_update_timestamp = Time()
-        self.last_base_update_timestamp = Time()
-        self._goal_reset_t = Time()
+        self.last_odom_update_timestamp = Time(clock_type=ClockType.ROS_TIME)
+        self.last_base_update_timestamp = Time(clock_type=ClockType.ROS_TIME)
+        self._goal_reset_t = Time(clock_type=ClockType.ROS_TIME)
 
         # Create visualizers for pose information
         self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
@@ -451,7 +452,7 @@ class StretchRosInterface(Node):
     def get_frame_pose(self, frame, base_frame=None, lookup_time=None, timeout_s=None):
         """look up a particular frame in base coords (or some other coordinate frame)."""
         if lookup_time is None:
-            lookup_time = Time()  # return most recent transform
+            lookup_time = Time(clock_type=ClockType.ROS_TIME)  # return most recent transform
         if timeout_s is None:
             timeout_ros = Duration(seconds=0.1)
         else:

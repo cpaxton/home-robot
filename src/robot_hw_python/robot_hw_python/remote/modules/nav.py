@@ -59,9 +59,14 @@ class StretchNavigationClient(AbstractControlModule):
 
     def at_goal(self) -> bool:
         """Returns true if the agent is currently at its goal location"""
+        self._ros_client.get_logger().info(
+            f"time diff {self._ros_client.get_clock().now()} - {self._ros_client._goal_reset_t}"
+        )
+        # self._ros_client.get_logger().info(f"goal rewset time now {self._ros_client._goal_reset_t}")
         if (
             self._ros_client._goal_reset_t is not None
-            and (self._ros_client.get_clock().now() - self._ros_client._goal_reset_t) * 1e-9
+            and (self._ros_client.get_clock().now() - self._ros_client._goal_reset_t).nanoseconds
+            * 1e-9
             > self._ros_client.msg_delay_t
         ):
             return self._ros_client.at_goal
@@ -211,7 +216,7 @@ class StretchNavigationClient(AbstractControlModule):
     def _wait_for_goal_reached(self, verbose: bool = False):
         """Wait until goal is reached"""
         rate = self._ros_client.create_rate(1 / self._ros_client.msg_delay_t)
-        rate.sleep(self._ros_client.msg_delay_t)
+        rate.sleep()
 
         rate = self._ros_client.create_rate(self.block_spin_rate)
         t0 = self._ros_client.get_clock().now()
