@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 import sys
 import threading
+from threading import Event
 from typing import Dict, Optional
 
 import numpy as np
@@ -172,16 +173,35 @@ class StretchRosInterface(Node):
 
         # Construct goal msg
         goal_msg = FollowJointTrajectory.Goal()
-        goal_msg.goal_time_tolerance = Time(seconds=self.goal_time_tolerance)
+        goal_msg.goal_time_tolerance = Duration(seconds=self.goal_time_tolerance).to_msg()
         goal_msg.trajectory.joint_names = joint_names
         goal_msg.trajectory.points = [point_msg]
         goal_msg.trajectory.header.stamp = self.get_clock().now().to_msg()
 
+        # self.action_done_event = Event()
         # Send goal
-        self.goal_handle = self.trajectory_client.send_goal_async(goal_msg).result()
+        self.goal_handle = None
+        self.goal_handle_future = self.trajectory_client.send_goal_async(goal_msg)
+        self.goal_handle_future.add_done_callback(self.trajectory_done_callback)
+        # self.get_logger().info(f"")
+
+    def trajectory_done_callback(self, future):
+        self.goal_handle = future.result()
 
     def wait_for_trajectory_action(self):
+        rate = self.create_rate(100)
+        # self.get_logger().info(
+        #     f"Entering while loop with as future done is - {self.goal_handle_future.done()}"
+        # )
+        while self.goal_handle is None:
+            self.get_logger().info(f"Sleeping for Goal handle future")
+            rate.sleep()
+        self.get_logger().info(f"Waiting for result")
         self.goal_handle.get_result()
+        self.get_logger().info(f"Action is done")
+        # self.action_done_event.wait()
+        # rclpy.spin_until_future_complete(self, self.goal_handle_future)
+        # self.goal_handle.get_result()
 
     def recent_depth_image(self, seconds, print_delay_timers: bool = False):
         """Return true if we have up to date depth."""
@@ -207,7 +227,7 @@ class StretchRosInterface(Node):
     ) -> FollowJointTrajectory.Goal:
         """Create a joint trajectory goal to move the arm."""
         trajectory_goal = FollowJointTrajectory.Goal()
-        trajectory_goal.goal_time_tolerance = Time(seconds=self.goal_time_tolerance)
+        trajectory_goal.goal_time_tolerance = Duration(seconds=self.goal_time_tolerance).to_msg()
         trajectory_goal.trajectory.joint_names = self.ros_joint_names
         trajectory_goal.trajectory.points = [self._config_to_ros_msg(q, dq, ddq)]
         trajectory_goal.trajectory.header.stamp = self.get_clock().now().to_msg()
