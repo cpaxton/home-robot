@@ -52,6 +52,7 @@ class RosCamera(Camera):
         )
         self.wait_for_camera_info()
         cam_info = self.camera_info
+        print("Camera info:", cam_info)
 
         # Buffer
         self.buffer_size = buffer_size
