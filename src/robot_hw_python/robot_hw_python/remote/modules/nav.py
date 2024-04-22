@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import time
 from typing import Iterable, List
 
 import numpy as np
@@ -59,9 +60,9 @@ class StretchNavigationClient(AbstractControlModule):
 
     def at_goal(self) -> bool:
         """Returns true if the agent is currently at its goal location"""
-        self._ros_client.get_logger().info(
-            f"time diff {self._ros_client.get_clock().now()} - {self._ros_client._goal_reset_t}"
-        )
+        # self._ros_client.get_logger().info(
+        #     f"time diff {self._ros_client.get_clock().now()} - {self._ros_client._goal_reset_t}"
+        # )
         # self._ros_client.get_logger().info(f"goal rewset time now {self._ros_client._goal_reset_t}")
         if (
             self._ros_client._goal_reset_t is not None
@@ -173,8 +174,10 @@ class StretchNavigationClient(AbstractControlModule):
         if avoid_obstacles:
             raise NotImplementedError("Obstacle avoidance unavailable.")
 
+        self._ros_client.get_logger().info("Setting yaw service")
         # Set yaw tracking
         self._ros_client.set_yaw_service.call(SetBool.Request(data=(not position_only)))
+        self._ros_client.get_logger().info("Yaw service set")
 
         # Compute absolute goal
         if relative:
@@ -182,6 +185,7 @@ class StretchNavigationClient(AbstractControlModule):
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
         else:
             xyt_goal = xyt
+        self._ros_client.get_logger().info(f"XYT Goal {xyt_goal}")
 
         # Clear self.at_goal
         self._ros_client.at_goal = False
@@ -192,9 +196,13 @@ class StretchNavigationClient(AbstractControlModule):
         self._ros_client.goal_visualizer(goal_matrix)
         msg = matrix_to_pose_msg(goal_matrix)
 
+        self._ros_client.get_logger().info("Setting goto service call")
         self._ros_client.goto_on_service.call(Trigger.Request())
+        self._ros_client.get_logger().info("Goto service call set")
+
         self._ros_client.goal_pub.publish(msg)
 
+        self._ros_client.get_logger().info("Waiting for completion")
         self._register_wait(self._wait_for_goal_reached)
         if blocking:
             self.wait()
@@ -215,8 +223,9 @@ class StretchNavigationClient(AbstractControlModule):
 
     def _wait_for_goal_reached(self, verbose: bool = False):
         """Wait until goal is reached"""
-        rate = self._ros_client.create_rate(1 / self._ros_client.msg_delay_t)
-        rate.sleep()
+        # rate = self._ros_client.create_rate(1 / self._ros_client.msg_delay_t)
+        # rate.sleep()
+        time.sleep(self._ros_client.msg_delay_t)
 
         rate = self._ros_client.create_rate(self.block_spin_rate)
         t0 = self._ros_client.get_clock().now()
