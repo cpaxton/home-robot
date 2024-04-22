@@ -47,8 +47,8 @@ class RosCamera(Camera):
             print("Waiting for camera info on", self._camera_info_topic + "...")
 
         self.camera_info = None
-        self._ros_client.create_subscription(
-            CameraInfo, self._camera_info_topic, self.cam_info_callback, 1
+        self._info_sub = self._ros_client.create_subscription(
+            CameraInfo, self._camera_info_topic, self.cam_info_callback, 100
         )
         self.wait_for_camera_info()
         cam_info = self.camera_info
@@ -64,10 +64,10 @@ class RosCamera(Camera):
 
         # Get camera information
         self.distortion_model = cam_info.distortion_model
-        self.D = np.array(cam_info.D)  # Distortion parameters
-        self.K = np.array(cam_info.K).reshape(3, 3)
-        self.R = np.array(cam_info.R).reshape(3, 3)  # Rectification matrix
-        self.P = np.array(cam_info.P).reshape(3, 4)  # Projection/camera matrix
+        self.D = np.array(cam_info.d)  # Distortion parameters
+        self.K = np.array(cam_info.k).reshape(3, 3)
+        self.R = np.array(cam_info.r).reshape(3, 3)  # Rectification matrix
+        self.P = np.array(cam_info.p).reshape(3, 4)  # Projection/camera matrix
 
         if self.rotations % 2 != 0:
             self.K[0, 0], self.K[1, 1] = self.K[1, 1], self.K[0, 0]
@@ -91,18 +91,21 @@ class RosCamera(Camera):
             print(cam_info)
             print("---------------")
         self.frame_id = cam_info.header.frame_id
-        self.topic_name = name + "/image_raw"
+        if self.name.split("/")[3] == "color":
+            self.topic_name = name + "/image_raw"
+        else:
+            self.topic_name = name + "/image_rect_raw"
         self._sub = self._ros_client.create_subscription(Image, self.topic_name, self._cb, 1)
 
     def cam_info_callback(self, msg):
-        """Camer aInfo callback"""
+        """Camera Info callback"""
         self.camera_info = msg
 
     def wait_for_camera_info(self):
         """Wait until you get the camera info"""
 
         rate = self._ros_client.create_rate(100)
-        while self.camera_info is not None:
+        while self.camera_info is None:
             rate.sleep()
 
     def _cb(self, msg):

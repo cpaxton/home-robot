@@ -8,21 +8,19 @@ from typing import Optional
 
 import numpy as np
 import rclpy
-from rclpy.node import Node
-from rclpy.duration import Duration
-from rclpy.time import Time
 import sophus as sp
 from geometry_msgs.msg import Pose, PoseStamped, Twist
-from nav_msgs.msg import Odometry
-from std_msgs.msg import Bool, Float32
-from std_srvs.srv import (
-    SetBool,
-    Trigger,
-)
-
 from home_robot.control.goto_controller import GotoVelocityController
 from home_robot.utils.config import get_control_config
 from home_robot.utils.geometry import sophus2xyt
+from nav_msgs.msg import Odometry
+from rclpy.clock import ClockType
+from rclpy.duration import Duration
+from rclpy.node import Node
+from rclpy.time import Time
+from std_msgs.msg import Bool, Float32
+from std_srvs.srv import SetBool, Trigger
+
 from robot_hw_python.ros.utils import matrix_from_pose_msg
 from robot_hw_python.ros.visualizer import Visualizer
 
@@ -40,9 +38,6 @@ class GotoVelocityControllerNode(Node):
     Target goal is update-able at any given instant.
     """
 
-    # How long should the controller report done before we're actually confident that we're done?
-    done_t = Duration(seconds=0.1)
-
     def __init__(
         self,
         hz: float,
@@ -53,6 +48,9 @@ class GotoVelocityControllerNode(Node):
 
         self.hz = hz
         self.odom_only = odom_only_feedback
+
+        # How long should the controller report done before we're actually confident that we're done?
+        self.done_t = Duration(seconds=0.1)
 
         # Control module
         controller_cfg = get_control_config(config_name)
@@ -73,9 +71,9 @@ class GotoVelocityControllerNode(Node):
         self.active = False
         self.is_done = True
         self.controller_finished = True
-        self.done_since = Time()
+        self.done_since = Time(clock_type=ClockType.ROS_TIME)
         self.track_yaw = True
-        self.goal_set_t = Time()
+        self.goal_set_t = Time(clock_type=ClockType.ROS_TIME)
 
         # Visualizations
         self.goal_visualizer = Visualizer("goto_controller/goal_abs")
@@ -130,7 +128,7 @@ class GotoVelocityControllerNode(Node):
             self.controller_finished = False
 
             # Visualize
-            self.goal_visualizer(pose_goal.matrix())
+            # self.goal_visualizer(pose_goal.matrix())
 
         # Do not update goal if controller is not active (prevents _enable_service to suddenly start moving the robot)
         else:
@@ -174,14 +172,18 @@ class GotoVelocityControllerNode(Node):
     def control_loop_callback(self):
         """Actual contoller timer callback"""
 
+        # self.get_logger().info(
+        #     f"control callback active and goal {self.active} and {self.xyt_goal}"
+        # )
         if self.active and self.xyt_goal is not None:
             # Compute control
             self.is_done = False
             v_cmd, w_cmd = self.controller.compute_control()
             done = self.controller.is_done()
 
+            self.get_logger().info(f"veclocities {v_cmd} and {w_cmd}")
             # Compute timeout
-            time_since_goal_set = (self.get_clock().now() - self.goal_set_t).to_sec()
+            time_since_goal_set = (self.get_clock().now() - self.goal_set_t).nanoseconds * 1e-9
             if self.controller.timeout(time_since_goal_set):
                 done = True
                 v_cmd, w_cmd = 0, 0
@@ -215,7 +217,7 @@ class GotoVelocityControllerNode(Node):
 
             # Command robot
             self._set_velocity(v_cmd, w_cmd)
-            self.at_goal_pub.publish(self.is_done)
+            self.at_goal_pub.publish(Bool(data=self.is_done))
 
             if self.is_done:
                 self.active = False
@@ -246,8 +248,9 @@ class GotoVelocityControllerNode(Node):
         )
 
         # Run controller
-        self.create_timer(self.hz, self.control_loop_callback)
+        self.create_timer(1 / self.hz, self.control_loop_callback)
         self.get_logger().info("Goto Controller launched.")
+
 
 def main():
     rclpy.init()
@@ -257,6 +260,7 @@ def main():
 
     velocity_controller.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == "__main__":
     main()

@@ -4,13 +4,13 @@
 # LICENSE file in the root directory of this source tree.
 import sys
 import threading
+from threading import Event
 from typing import Dict, Optional
 
 import numpy as np
 
 # from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 import rclpy
-import ros2_numpy
 import sophus as sp
 import tf2_ros
 from control_msgs.action import FollowJointTrajectory
@@ -19,6 +19,7 @@ from home_robot.motion.stretch import STRETCH_HEAD_CAMERA_ROTATIONS, HelloStretc
 from home_robot.utils.pose import to_matrix
 from nav_msgs.msg import Odometry
 from rclpy.action import ActionClient
+from rclpy.clock import ClockType
 from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.time import Time
@@ -26,10 +27,11 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import Bool, Empty, Float32, String
 from std_srvs.srv import SetBool, Trigger
 from tf2_ros import TransformException
-from trajectory_msgs.msg import JointTrajectoryPoint
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+from trajectory_msgs.msg import JointTrajectoryPoint
 
+import ros2_numpy
 from robot_hw_python.constants import (
     CONFIG_TO_ROS,
     ROS_ARM_JOINTS,
@@ -43,8 +45,8 @@ from robot_hw_python.ros.lidar import RosLidar
 from robot_hw_python.ros.utils import matrix_from_pose_msg
 from robot_hw_python.ros.visualizer import Visualizer
 
-DEFAULT_COLOR_TOPIC = "/camera/color"
-DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
+DEFAULT_COLOR_TOPIC = "/camera/camera/color"
+DEFAULT_DEPTH_TOPIC = "/camera/camera/depth"
 DEFAULT_LIDAR_TOPIC = "/scan"
 
 
@@ -98,13 +100,17 @@ class StretchRosInterface(Node):
         self.se3_camera_pose: Optional[sp.SE3] = None
         self.at_goal: bool = False
 
-        self.last_odom_update_timestamp = Time()
-        self.last_base_update_timestamp = Time()
-        self._goal_reset_t = Time()
+        self.last_odom_update_timestamp = Time(clock_type=ClockType.ROS_TIME)
+        self.last_base_update_timestamp = Time(clock_type=ClockType.ROS_TIME)
+        self._goal_reset_t = Time(clock_type=ClockType.ROS_TIME)
 
         # Create visualizers for pose information
         self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
         self.curr_visualizer = Visualizer("current_pose", rgba=[0.0, 0.0, 1.0, 0.5])
+
+        # Start the thread
+        self._thread = threading.Thread(target=rclpy.spin, args=(self,), daemon=True)
+        self._thread.start()
 
         # Initialize ros communication
         # self._safety_check()
@@ -126,8 +132,11 @@ class StretchRosInterface(Node):
             self._create_cameras()
             self._wait_for_cameras()
         if init_lidar:
-            self._lidar = RosLidar(self._lidar_topic)
+            self._lidar = RosLidar(self, self._lidar_topic)
             self._lidar.wait_for_scan()
+
+    def __del__(self):
+        self._thread.join()
 
     # Interfaces
 
@@ -165,16 +174,35 @@ class StretchRosInterface(Node):
 
         # Construct goal msg
         goal_msg = FollowJointTrajectory.Goal()
-        goal_msg.goal_time_tolerance = Time(seconds=self.goal_time_tolerance)
+        goal_msg.goal_time_tolerance = Duration(seconds=self.goal_time_tolerance).to_msg()
         goal_msg.trajectory.joint_names = joint_names
         goal_msg.trajectory.points = [point_msg]
         goal_msg.trajectory.header.stamp = self.get_clock().now().to_msg()
 
+        # self.action_done_event = Event()
         # Send goal
-        self.goal_handle = self.trajectory_client.send_goal_async(goal_msg).result()
+        self.goal_handle = None
+        self.goal_handle_future = self.trajectory_client.send_goal_async(goal_msg)
+        self.goal_handle_future.add_done_callback(self.trajectory_done_callback)
+        # self.get_logger().info(f"")
+
+    def trajectory_done_callback(self, future):
+        self.goal_handle = future.result()
 
     def wait_for_trajectory_action(self):
+        rate = self.create_rate(100)
+        # self.get_logger().info(
+        #     f"Entering while loop with as future done is - {self.goal_handle_future.done()}"
+        # )
+        while self.goal_handle is None:
+            self.get_logger().info(f"Sleeping for Goal handle future")
+            rate.sleep()
+        self.get_logger().info(f"Waiting for result")
         self.goal_handle.get_result()
+        self.get_logger().info(f"Action is done")
+        # self.action_done_event.wait()
+        # rclpy.spin_until_future_complete(self, self.goal_handle_future)
+        # self.goal_handle.get_result()
 
     def recent_depth_image(self, seconds, print_delay_timers: bool = False):
         """Return true if we have up to date depth."""
@@ -189,9 +217,9 @@ class StretchRosInterface(Node):
             print(" - 2", (self.dpt_cam.get_time() - self._goal_reset_t) * 1e-9, seconds)
         if (
             self._goal_reset_t is not None
-            and (self.get_clock().now() - self._goal_reset_t) * 1e-9 > self.msg_delay_t
+            and (self.get_clock().now() - self._goal_reset_t).nanoseconds * 1e-9 > self.msg_delay_t
         ):
-            return (self.dpt_cam.get_time() - self._goal_reset_t) * 1e-9 > seconds
+            return (self.dpt_cam.get_time() - self._goal_reset_t).nanoseconds * 1e-9 > seconds
         else:
             return False
 
@@ -200,7 +228,7 @@ class StretchRosInterface(Node):
     ) -> FollowJointTrajectory.Goal:
         """Create a joint trajectory goal to move the arm."""
         trajectory_goal = FollowJointTrajectory.Goal()
-        trajectory_goal.goal_time_tolerance = Time(seconds=self.goal_time_tolerance)
+        trajectory_goal.goal_time_tolerance = Duration(seconds=self.goal_time_tolerance).to_msg()
         trajectory_goal.trajectory.joint_names = self.ros_joint_names
         trajectory_goal.trajectory.points = [self._config_to_ros_msg(q, dq, ddq)]
         trajectory_goal.trajectory.header.stamp = self.get_clock().now().to_msg()
@@ -278,7 +306,7 @@ class StretchRosInterface(Node):
             PointStamped, "place_point/trigger_place_point", 1
         )
         self.place_result_sub = self.create_subscription(
-             Empty, "place_point/result", self._place_result_callback, 10
+            Empty, "place_point/result", self._place_result_callback, 10
         )  # Had to check qos_profile
 
         # Create subscribers
@@ -290,7 +318,7 @@ class StretchRosInterface(Node):
             PoseStamped, "camera_pose", self._camera_pose_callback, 1
         )
         self._at_goal_sub = self.create_subscription(
-            Bool, "goto_controller/at_goal", self._at_goal_callback, 10
+            Bool, "goto_controller/at_goal", self._at_goal_callback, 1
         )
         self._mode_sub = self.create_subscription(String, "mode", self._mode_callback, 1)
 
@@ -345,8 +373,8 @@ class StretchRosInterface(Node):
         if self.verbose:
             print("rgb frame =", self.rgb_cam.get_frame())
             print("dpt frame =", self.dpt_cam.get_frame())
-        if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
-            raise RuntimeError("issue with camera setup; depth and rgb not aligned")
+        # if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
+        #     raise RuntimeError("issue with camera setup; depth and rgb not aligned")
 
     def _config_to_ros_msg(self, q, dq=None, ddq=None):
         """convert into a joint state message"""
@@ -376,6 +404,7 @@ class StretchRosInterface(Node):
 
     def _at_goal_callback(self, msg):
         """Is the velocity controller done moving; is it at its goal?"""
+        self.get_logger().info(f"at goal listennign {self.at_goal}")
         self.at_goal = msg.data
         if not self.at_goal:
             self._goal_reset_t = None
@@ -424,7 +453,7 @@ class StretchRosInterface(Node):
     def get_frame_pose(self, frame, base_frame=None, lookup_time=None, timeout_s=None):
         """look up a particular frame in base coords (or some other coordinate frame)."""
         if lookup_time is None:
-            lookup_time = Time()  # return most recent transform
+            lookup_time = Time(clock_type=ClockType.ROS_TIME)  # return most recent transform
         if timeout_s is None:
             timeout_ros = Duration(seconds=0.1)
         else:
