@@ -219,7 +219,10 @@ class StretchRosInterface(Node):
             self._goal_reset_t is not None
             and (self.get_clock().now() - self._goal_reset_t).nanoseconds * 1e-9 > self.msg_delay_t
         ):
-            return (self.dpt_cam.get_time() - self._goal_reset_t).nanoseconds * 1e-9 > seconds
+            # self.get_logger().info(
+            #     f"Two Times {self.dpt_cam.get_time()}, {self._goal_reset_t}, {seconds}"
+            # )
+            return (self.dpt_cam.get_time().sec - self._goal_reset_t.nanoseconds * 1e-9) > seconds
         else:
             return False
 
@@ -404,7 +407,7 @@ class StretchRosInterface(Node):
 
     def _at_goal_callback(self, msg):
         """Is the velocity controller done moving; is it at its goal?"""
-        self.get_logger().info(f"at goal listennign {self.at_goal}")
+        # self.get_logger().info(f"at goal listennign {self.at_goal}")
         self.at_goal = msg.data
         if not self.at_goal:
             self._goal_reset_t = None
