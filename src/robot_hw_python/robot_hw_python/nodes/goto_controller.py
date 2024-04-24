@@ -172,9 +172,6 @@ class GotoVelocityControllerNode(Node):
     def control_loop_callback(self):
         """Actual contoller timer callback"""
 
-        # self.get_logger().info(
-        #     f"control callback active and goal {self.active} and {self.xyt_goal}"
-        # )
         if self.active and self.xyt_goal is not None:
             # Compute control
             self.is_done = False

@@ -7,18 +7,19 @@ import logging
 import threading
 from typing import Optional
 
-from rclpy.node import Node
-from rclpy.duration import Duration
 import numpy as np
 import rclpy
 import sophus as sp
 import tf2_ros
-from geometry_msgs.msg import (
-    PoseStamped,
-    PoseWithCovarianceStamped,
-    TransformStamped,
-)
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, TransformStamped
+from home_robot.motion.stretch import STRETCH_BASE_FRAME
+from home_robot.utils.pose import to_matrix, transform_to_list
 from nav_msgs.msg import Odometry
+from rclpy.duration import Duration
+from rclpy.node import Node
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
 
 from robot_hw_python.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 
@@ -33,7 +34,7 @@ def cutoff_angle(duration, cutoff_freq):
 
 class NavStateEstimator(Node):
     """Node that publishes transform between map and base_link"""
-    
+
     def __init__(self, trust_slam: bool = False, use_history: bool = True):
         """Create nav state estimator.
 
@@ -138,9 +139,7 @@ class NavStateEstimator(Node):
         pose_diff_odom = self._pose_odom_prev.inverse() * odom_update
 
         # Mix and inject signals
-        pose_diff_log = (
-            coeff * pose_diff_odom.log() + (1 - coeff) * pose_diff_slam.log()
-        )
+        pose_diff_log = coeff * pose_diff_odom.log() + (1 - coeff) * pose_diff_slam.log()
         return slam_pose * sp.SE3.exp(pose_diff_log)
 
     def _odom_callback(self, pose: Odometry):
@@ -153,12 +152,10 @@ class NavStateEstimator(Node):
         # Update filtered pose
         if self._t_odom_prev is None:
             self._t_odom_prev = t_curr
-        # 
+        #
         t_interval_secs = (t_curr - self._t_odom_prev).nanoseconds * 1e-9
 
-        self._filtered_pose = self._filter_signals(
-            self._slam_pose_sp, pose_odom, t_interval_secs
-        )
+        self._filtered_pose = self._filter_signals(self._slam_pose_sp, pose_odom, t_interval_secs)
         self._publish_filtered_state(pose.header.stamp)
 
         # Update variables
@@ -167,9 +164,25 @@ class NavStateEstimator(Node):
 
     def _slam_pose_callback(self, pose: PoseWithCovarianceStamped) -> None:
         """Update slam pose for filtering"""
+        self.get_logger().info(f"received pose {pose}")
         with self._slam_inject_lock:
             self._slam_pose_prev = self._slam_pose_sp
             self._slam_pose_sp = sp.SE3(matrix_from_pose_msg(pose.pose.pose))
+
+    def get_pose(self):
+        try:
+            # Added transform_to_list function to handle change in return type of tf2 lookup_transform
+            trans, rot = transform_to_list(
+                self.tf_buffer.lookup_transform("map", STRETCH_BASE_FRAME, rclpy.time.Time())
+            )
+            matrix = to_matrix(trans, rot)
+
+            with self._slam_inject_lock:
+                self._slam_pose_prev = self._slam_pose_sp
+                self._slam_pose_sp = sp.SE3(matrix)
+
+        except TransformException as ex:
+            self.get_logger().info(f"Could not tranform the base pose {ex}")
 
     def create_pubs_and_subs(self):
         # Create publishers and subscribers
@@ -182,23 +195,28 @@ class NavStateEstimator(Node):
         self._base_frame_id = "base_link"
         self._tf_broadcaster = tf2_ros.TransformBroadcaster(self)
 
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
         # This comes from hector_slam.
         # It's a transform from src_frame = 'base_link', target_frame = 'map'
         # The *inverse* is published by default from hector as the transform from map to base -
         # you can verify this with:
         #   rosrun tf tf_echo map base_link
         # Which will show the same output as this topic.
-        self.pose_subscriber = self.create_subscription(
-            PoseWithCovarianceStamped,
-            "/pose",
-            self._slam_pose_callback,
-            1,
-        )
+        # self.pose_subscriber = self.create_subscription(
+        #     PoseWithCovarianceStamped,
+        #     "/pose",
+        #     self._slam_pose_callback,
+        #     10,
+        # )
+        self.create_timer(1 / 10, self.get_pose)
         # This pose update comes from wheel odometry
-        self.odom_subcriber = self.create_subscription(Odometry, "/odom",  self._odom_callback, 1)
+        self.odom_subcriber = self.create_subscription(Odometry, "/odom", self._odom_callback, 1)
 
         # Run
         log.info("State Estimator launched.")
+
 
 def main():
     rclpy.init()
@@ -208,6 +226,7 @@ def main():
 
     state_estimator.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == "__main__":
     main()
