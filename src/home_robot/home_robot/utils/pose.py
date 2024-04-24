@@ -52,9 +52,7 @@ def cross_product(u, v):
     j = u[:, 2] * v[:, 0] - u[:, 0] * v[:, 2]
     k = u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0]
 
-    out = torch.cat(
-        (i.view(batch, 1), j.view(batch, 1), k.view(batch, 1)), 1
-    )  # batch*3
+    out = torch.cat((i.view(batch, 1), j.view(batch, 1), k.view(batch, 1)), 1)  # batch*3
 
     return out
 
@@ -90,10 +88,11 @@ def transform_to_list(transform):
     rot = transform.transform.rotation
     trans = transform.transform.translation
 
-    rot = [rot.w, rot.x, rot.y, rot.z]
+    rot = [rot.x, rot.y, rot.z, rot.w]
     trans = [trans.x, trans.y, trans.z]
 
     return trans, rot
+
 
 def to_matrix(pos, rot, trimesh_format=False) -> np.ndarray:
     """converts pos, quat to matrix format"""
@@ -149,12 +148,12 @@ def get_new_pose(pose, rel_pose_change):
 
 def get_new_pose_batch(pose, rel_pose_change):
     const = 57.29577951308232
-    pose[:, 1] += rel_pose_change[:, 0] * torch.sin(
-        pose[:, 2] / const
-    ) + rel_pose_change[:, 1] * torch.cos(pose[:, 2] / const)
-    pose[:, 0] += rel_pose_change[:, 0] * torch.cos(
-        pose[:, 2] / const
-    ) - rel_pose_change[:, 1] * torch.sin(pose[:, 2] / const)
+    pose[:, 1] += rel_pose_change[:, 0] * torch.sin(pose[:, 2] / const) + rel_pose_change[
+        :, 1
+    ] * torch.cos(pose[:, 2] / const)
+    pose[:, 0] += rel_pose_change[:, 0] * torch.cos(pose[:, 2] / const) - rel_pose_change[
+        :, 1
+    ] * torch.sin(pose[:, 2] / const)
     pose[:, 2] += rel_pose_change[:, 2] * const
     pose[:, 2] = torch.fmod(pose[:, 2] - 180.0, 360.0) + 180.0
     pose[:, 2] = torch.fmod(pose[:, 2] + 180.0, 360.0) - 180.0
