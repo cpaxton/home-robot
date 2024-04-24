@@ -53,7 +53,7 @@ def add_raw_obs_to_voxel_map(obs_history, voxel_map):
     config, semantic_sensor = create_semantic_sensor()
     voxel_map.reset()
     key_obs = key_obs[::2]  # TODO: set frame skip param in config
-    # key_obs = key_obs[35:45]
+    # key_obs = key_obs[35:38]
     for idx, obs in enumerate(key_obs):
         # image_array = np.array(obs.rgb, dtype=np.uint8)
         # image = Image.fromarray(image_array)
@@ -154,7 +154,7 @@ def main(
 
     # TODO: read this from file or something
     # x0 = np.array([0, 0, 0])
-    x0 = np.array([0, 0, 0])
+    x0 = np.array([1, -3, 0])
     # x0 = np.array([2.6091852, 3.2328937, 0.8379814])
     # x0 = np.array([3.1000001, 0.0, 4.2857614])
     # x0 = np.array([0.0, -0.0, 1.5707968])
