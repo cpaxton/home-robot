@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 CONTROL_HZ = 20
 VEL_THRESHOlD = 0.001
 RVEL_THRESHOLD = 0.005
-DEBUG_CONTROL_LOOP = False
+DEBUG_CONTROL_LOOP = True
 
 
 class GotoVelocityControllerNode(Node):
@@ -172,16 +172,13 @@ class GotoVelocityControllerNode(Node):
     def control_loop_callback(self):
         """Actual contoller timer callback"""
 
-        # self.get_logger().info(
-        #     f"control callback active and goal {self.active} and {self.xyt_goal}"
-        # )
         if self.active and self.xyt_goal is not None:
             # Compute control
             self.is_done = False
             v_cmd, w_cmd = self.controller.compute_control()
             done = self.controller.is_done()
 
-            self.get_logger().info(f"veclocities {v_cmd} and {w_cmd}")
+            # self.get_logger().info(f"veclocities {v_cmd} and {w_cmd}")
             # Compute timeout
             time_since_goal_set = (self.get_clock().now() - self.goal_set_t).nanoseconds * 1e-9
             if self.controller.timeout(time_since_goal_set):
@@ -201,22 +198,13 @@ class GotoVelocityControllerNode(Node):
                         self.is_done = True
                 else:
                     self.controller_finished = False
-                    self.done_since = Time()
+                    self.done_since = Time(clock_type=ClockType.ROS_TIME)
 
-                if DEBUG_CONTROL_LOOP:
-                    print(
-                        "done =",
-                        done,
-                        "vel =",
-                        self.vel_odom,
-                        "controller done =",
-                        self.controller_finished,
-                        "is done =",
-                        self.is_done,
-                    )
-
+            # self.get_logger().info(
+            #     f"done = {done} cmd vel = {v_cmd, w_cmd} odom vel = {self.vel_odom} controller done = {self.controller_finished} is done ={self.is_done}"
+            # )
             # Command robot
-            self._set_velocity(v_cmd, w_cmd)
+            self._set_velocity(v_cmd * 1.0, w_cmd * 1.0)
             self.at_goal_pub.publish(Bool(data=self.is_done))
 
             if self.is_done:
