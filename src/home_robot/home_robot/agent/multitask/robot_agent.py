@@ -17,7 +17,7 @@ from atomicwrites import atomic_write
 from loguru import logger
 from PIL import Image
 from torchvision import transforms
-from transformers import Owlv2ForObjectDetection, Owlv2Processor
+# from transformers import Owlv2ForObjectDetection, Owlv2Processor
 
 from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
