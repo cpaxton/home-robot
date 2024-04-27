@@ -140,7 +140,9 @@ def main(
         xyt = robot.nav.get_base_pose()
         xyt[2] = xyt[2] - np.pi / 2
         robot.nav.navigate_to(xyt)
-
+        
+        if input('You want to run placing: y/n' == 'n'):
+            continue
         text = input('Enter receptacle name: ')
         point = demo.image_sender.query_text(text)
         demo.navigate(point)

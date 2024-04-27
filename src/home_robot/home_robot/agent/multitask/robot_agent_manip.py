@@ -279,8 +279,7 @@ class RobotAgentManip:
             print("       Start:", start)
             # sample a goal
             res = plan_to_frontier(
-                # start,
-                [0, 0, 0],
+                start,
                 self.planner,
                 self.space,
                 self.voxel_map,
@@ -433,13 +432,14 @@ class RobotAgentManip:
                 pos_err_threshold=self.pos_err_threshold,
                 rot_err_threshold=self.rot_err_threshold,
             )
+            return True
         else:
             print('Navigation Failure!')
+            return False
         # self.robot.head.set_pan_tilt(pan = 0, tilt = -0.3)
         # self.rotate_in_place()
         # self.robot.head.set_pan_tilt(pan = 0, tilt = -0.6)
         # self.rotate_in_place()
-        return res.success
 
     def place(self, text, init_tilt = INIT_HEAD_TILT, transform_node = GRIPPER_MID_NODE, base_node = TOP_CAMERA_NODE):
         '''
