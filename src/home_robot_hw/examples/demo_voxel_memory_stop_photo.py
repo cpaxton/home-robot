@@ -125,7 +125,7 @@ def main(
         text = input('Enter object name: ')
         point = demo.image_sender.query_text(text)
         demo.navigate(point)
-        cv2.imwrite(text + '.jpg', demo.robot.get_observation().rgb)
+        cv2.imwrite(text + '.jpg', demo.robot.get_observation().rgb[:, :, [2, 1, 0]])
         robot.switch_to_navigation_mode()
         xyt = robot.nav.get_base_pose()
         xyt[2] = xyt[2] + np.pi / 2
@@ -146,6 +146,7 @@ def main(
         text = input('Enter receptacle name: ')
         point = demo.image_sender.query_text(text)
         demo.navigate(point)
+        cv2.imwrite(text + '.jpg', demo.robot.get_observation().rgb[:, :, [2, 1, 0]])
         robot.switch_to_navigation_mode()
         xyt = robot.nav.get_base_pose()
         xyt[2] = xyt[2] + np.pi / 2

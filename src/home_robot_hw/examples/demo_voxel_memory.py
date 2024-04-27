@@ -127,6 +127,7 @@ def main(
         text = input('Enter object name: ')
         point = demo.image_sender.query_text(text)
         demo.navigate(point)
+        cv2.imwrite(text + '.jpg', demo.robot.get_observation().rgb[:, :, [2, 1, 0]])
 
 
 

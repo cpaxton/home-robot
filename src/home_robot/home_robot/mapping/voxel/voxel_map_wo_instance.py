@@ -345,7 +345,11 @@ class SparseVoxelMapNavigationSpaceVoxel(XYT):
                 + explored.int()
                 + obstacles.int() * 5
             )
-            plt.savefig('debug.png')
+            import datetime
+            current_datetime = datetime.datetime.now()
+            formatted_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
+            plt.savefig('debug_' + formatted_datetime + '.png')
+
 
         # Where can the robot go?
         valid_indices = torch.nonzero(expanded_mask, as_tuple=False)
