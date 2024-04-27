@@ -28,7 +28,7 @@ class HelloRobot:
     ):
         self.STRETCH_GRIPPER_MAX = stretch_gripper_max
         self.STRETCH_GRIPPER_MIN = stretch_gripper_min
-        self.urdf_path = os.path.join(stretch_client_urdf_file, 'stretch_manip_mode2.urdf')
+        self.urdf_path = os.path.join(stretch_client_urdf_file, 'stretch_manip_mode.urdf')
         
         self.GRIPPER_THRESHOLD = gripper_threshold
 
