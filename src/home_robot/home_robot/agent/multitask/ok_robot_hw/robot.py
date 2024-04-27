@@ -1,7 +1,5 @@
-from home_robot_hw.remote import StretchClient
 import numpy as np
 import PyKDL
-import rospy
 import sys
 import os
 

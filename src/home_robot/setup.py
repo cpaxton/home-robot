@@ -18,7 +18,7 @@ install_requires = [
     "sophuspy==0.0.8",
     # "trimesh",
     "pin>=2.6.17",
-    "torch_cluster==1.6.2",
+    "torch_cluster==1.6.3",
     "torch_scatter==2.1.2",
     "pillow==9.5.0",  # For Detic compatibility
     "pyqt6"
