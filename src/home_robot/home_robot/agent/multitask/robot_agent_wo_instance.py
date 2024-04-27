@@ -32,7 +32,6 @@ from home_robot.motion import (
 
 import zmq
 
-import cv2
 from matplotlib import pyplot as plt
 
 class RobotAgentVoxel:
@@ -425,7 +424,6 @@ class RobotAgentVoxel:
             )
         else:
             print('Navigation Failure!')
-        cv2.imwrite(text + '.jpg', self.robot.get_observation().rgb)
         self.robot.head.set_pan_tilt(pan = 0, tilt = -0.6)
         self.rotate_in_place()
         self.robot.head.set_pan_tilt(pan = 0, tilt = -0.3)

@@ -706,6 +706,8 @@ class SparseVoxelMapVoxel(object):
 
     def xy_to_grid_coords(self, xy: torch.Tensor) -> Optional[np.ndarray]:
         """convert xy point to grid coords"""
+        if not isinstance(xy, torch.Tensor):
+            xy = torch.Tensor(xy)
         assert xy.shape[-1] == 2, "coords must be Nx2 or 2d array"
         # Handle convertion
         if isinstance(xy, np.ndarray):

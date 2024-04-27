@@ -180,6 +180,7 @@ class ImageProcessor:
             start_time = time.time()
             self.process_rgbd_images(data)
             process_time = time.time() - start_time
+            print('Image processing takes', process_time, 'seconds')
             self.img_socket.send_string('processing took ' + str(process_time) + ' seconds')
 
     def forward_one_block(self, resblocks, x):

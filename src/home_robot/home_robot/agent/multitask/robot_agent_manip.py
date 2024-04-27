@@ -32,7 +32,6 @@ from home_robot.motion import (
 
 import zmq
 
-import cv2
 from matplotlib import pyplot as plt
 
 from home_robot.agent.multitask.ok_robot_hw.global_parameters import *
@@ -385,6 +384,8 @@ class RobotAgentManip:
 
     def navigate(self, point, max_tries = 1000, radius_m = 0.7, visualize = False, verbose = True):
         print(point)
+        self.robot.switch_to_navigation_mode()
+        self.robot.head.look_front()
         target_grid = self.voxel_map.xy_to_grid_coords(point[:2]).int()
         obstacles, explored = self.voxel_map.get_2d_map()
         point_mask = torch.zeros_like(explored)
@@ -434,13 +435,13 @@ class RobotAgentManip:
             )
         else:
             print('Navigation Failure!')
-        cv2.imwrite(text + '.jpg', self.robot.get_observation().rgb)
-        self.robot.head.set_pan_tilt(pan = 0, tilt = -0.6)
-        self.rotate_in_place()
-        self.robot.head.set_pan_tilt(pan = 0, tilt = -0.3)
-        self.rotate_in_place()
+        # self.robot.head.set_pan_tilt(pan = 0, tilt = -0.3)
+        # self.rotate_in_place()
+        # self.robot.head.set_pan_tilt(pan = 0, tilt = -0.6)
+        # self.rotate_in_place()
+        return res.success
 
-    def place(self, text, transform_node = GRIPPER_MID_NODE, base_node = TOP_CAMERA_NODE):
+    def place(self, text, init_tilt = INIT_HEAD_TILT, transform_node = GRIPPER_MID_NODE, base_node = TOP_CAMERA_NODE):
         '''
             An API for running placing. By calling this API, human will ask the robot to place whatever it holds
             onto objects specified by text queries A
@@ -451,7 +452,11 @@ class RobotAgentManip:
             - base node: node name for coordinate systems of estimated gipper poses given by anygrasp
         '''
         self.robot.switch_to_manipulation_mode()
-        camera = RealSenseCamera(self.manip_wrapper.robot)
+        self.robot.head.look_at_ee()
+        self.manip_wrapper.move_to_position(
+            head_pan=INIT_HEAD_PAN,
+            head_tilt=init_tilt)
+        camera = RealSenseCamera(self.robot)
 
         time.sleep(2)
         rotation, translation, _ = capture_and_process_image(
@@ -495,7 +500,7 @@ class RobotAgentManip:
         self.manip_wrapper.move_to_position(base_trans = -self.manip_wrapper.robot.manip.get_joint_positions()[0])
         return True
 
-    def manipulate(self, text, transform_node = GRIPPER_MID_NODE, base_node = TOP_CAMERA_NODE):
+    def manipulate(self, text, init_tilt = INIT_HEAD_TILT, transform_node = GRIPPER_MID_NODE, base_node = TOP_CAMERA_NODE):
         '''
             An API for running manipulation. By calling this API, human will ask the robot to pick up objects
             specified by text queries A
@@ -513,14 +518,14 @@ class RobotAgentManip:
 
         self.manip_wrapper.move_to_position(arm_pos=INIT_ARM_POS,
                                 head_pan=INIT_HEAD_PAN,
-                                head_tilt=INIT_HEAD_TILT,
+                                head_tilt=init_tilt,
                                 gripper_pos = gripper_pos,
                                 lift_pos=INIT_LIFT_POS,
                                 wrist_pitch = INIT_WRIST_PITCH,
                                 wrist_roll = INIT_WRIST_ROLL,
                                 wrist_yaw = INIT_WRIST_YAW)
 
-        camera = RealSenseCamera(self.manip_wrapper.robot)
+        camera = RealSenseCamera(self.robot)
 
         rotation, translation, depth = capture_and_process_image(
             camera = camera,

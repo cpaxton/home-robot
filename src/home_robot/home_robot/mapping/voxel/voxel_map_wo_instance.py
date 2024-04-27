@@ -310,7 +310,7 @@ class SparseVoxelMapNavigationSpaceVoxel(XYT):
     def sample_near_mask(
         self,
         mask: torch.Tensor,
-        radius_m: float = 0.7,
+        radius_m: float = 0.6,
         max_tries: int = 1000,
         verbose: bool = False,
         debug: bool = False,

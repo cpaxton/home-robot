@@ -49,7 +49,7 @@ def main(
     # visualize,
     manual_wait,
     output_filename,
-    navigate_home: bool = True,
+    navigate_home: bool = False,
     show_intermediate_maps: bool = False,
     explore_iter: int = 10,
     input_path: str = None,

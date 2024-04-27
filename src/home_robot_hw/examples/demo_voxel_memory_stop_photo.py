@@ -25,6 +25,16 @@ from home_robot.agent.multitask import RobotAgentManip as RobotAgent
 from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
 from home_robot_hw.remote import StretchClient
 
+import cv2
+
+def compute_tilt(camera_xyz, target_xyz):
+    '''
+        a util function for computing robot head tilts so the robot can look at the target object after navigation
+        - camera_xyz: estimated (x, y, z) coordinates of camera
+        - target_xyz: estimated (x, y, z) coordinates of the target object
+    '''
+    vector = camera_xyz - target_xyz
+    return -np.arctan2(vector[2], np.linalg.norm(vector[:2]))
 
 @click.command()
 @click.option("--rate", default=5, type=int)
@@ -47,7 +57,7 @@ def main(
     # visualize,
     manual_wait,
     output_filename,
-    navigate_home: bool = True,
+    navigate_home: bool = False,
     show_intermediate_maps: bool = False,
     explore_iter: int = 10,
     input_path: str = None,
@@ -115,11 +125,39 @@ def main(
         text = input('Enter object name: ')
         point = demo.image_sender.query_text(text)
         demo.navigate(point)
-        demo.manipulate(text)
+        cv2.imwrite(text + '.jpg', demo.robot.get_observation().rgb)
+        robot.switch_to_navigation_mode()
+        xyt = robot.nav.get_base_pose()
+        xyt[2] = xyt[2] + np.pi / 2
+        robot.nav.navigate_to(xyt)
+
+        if input('You want to run manipulation: y/n' == 'n'):
+            continue
+        camera_xyz = robot.head.get_pose()[:3, 3]
+        theta = compute_tilt(camera_xyz, point)
+        demo.manipulate(text, theta)
+        robot.switch_to_navigation_mode()
+        xyt = robot.nav.get_base_pose()
+        xyt[2] = xyt[2] - np.pi / 2
+        robot.nav.navigate_to(xyt)
+
         text = input('Enter receptacle name: ')
         point = demo.image_sender.query_text(text)
         demo.navigate(point)
-        demo.place(text)
+        robot.switch_to_navigation_mode()
+        xyt = robot.nav.get_base_pose()
+        xyt[2] = xyt[2] + np.pi / 2
+        robot.nav.navigate_to(xyt)
+        
+        if input('You want to run placing: y/n' == 'n'):
+            continue
+        camera_xyz = robot.head.get_pose()[:3, 3]
+        theta = compute_tilt(camera_xyz, point)
+        demo.place(text, theta)
+        robot.switch_to_navigation_mode()
+        xyt = robot.nav.get_base_pose()
+        xyt[2] = xyt[2] - np.pi / 2
+        robot.nav.navigate_to(xyt)
 
 
 
