@@ -377,7 +377,7 @@ class ImageProcessor:
         rgb = rgb.permute(2, 0, 1).to(torch.uint8)
 
         with self.voxel_map_lock:
-            self.voxel_map_localizer.voxel_pcd.clear_points(intrinsics, pose)
+            self.voxel_map_localizer.voxel_pcd.clear_points(depth, intrinsics, pose)
 
         if self.owl:
             self.run_owl_sam_clip(rgb, torch.logical_or(depth > self.max_depth, depth < self.min_depth), world_xyz)
