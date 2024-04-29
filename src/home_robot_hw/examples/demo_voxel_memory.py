@@ -86,11 +86,11 @@ def main(
         robot, parameters
     )
 
-    robot1 = StretchClient()
     def send_image():
         while True:
-            obs = robot1.get_observation()
-            demo.image_sender.send_images(obs)
+            if robot.nav._is_enabled:
+                obs = robot.get_observation()
+                demo.image_sender.send_images(obs)
 
     img_thread = threading.Thread(target=send_image)
     img_thread.daemon = True

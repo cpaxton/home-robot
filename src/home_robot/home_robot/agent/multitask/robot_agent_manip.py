@@ -184,7 +184,7 @@ class RobotAgentManip:
     def update(self):
         """Step the data collector. Get a single observation of the world. Remove bad points, such as those from too far or too near the camera. Update the 3d world representation."""
         obs = self.robot.get_observation()
-        self.image_sender.send_images(obs)
+        # self.image_sender.send_images(obs)
         self.obs_history.append(obs)
         self.obs_count += 1
         self.voxel_map.add_obs(obs)    

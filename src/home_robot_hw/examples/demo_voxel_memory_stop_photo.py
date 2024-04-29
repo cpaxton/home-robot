@@ -26,6 +26,7 @@ from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
 from home_robot_hw.remote import StretchClient
 
 import cv2
+import threading
 
 def compute_tilt(camera_xyz, target_xyz):
     '''
@@ -93,6 +94,16 @@ def main(
     demo = RobotAgent(
         robot, parameters
     )
+
+    def send_image():
+        while True:
+            if robot.nav._is_enabled:
+                obs = robot.get_observation()
+                demo.image_sender.send_images(obs)
+
+    img_thread = threading.Thread(target=send_image)
+    img_thread.daemon = True
+    img_thread.start()
 
     if input_path:
         print('start reading from old pickle file')

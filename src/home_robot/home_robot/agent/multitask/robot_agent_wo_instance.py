@@ -270,8 +270,7 @@ class RobotAgentVoxel:
             print("       Start:", start)
             # sample a goal
             res = plan_to_frontier(
-                # start,
-                [0, 0, 0],
+                start,
                 self.planner,
                 self.space,
                 self.voxel_map,
