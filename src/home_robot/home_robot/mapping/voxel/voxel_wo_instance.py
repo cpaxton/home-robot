@@ -402,6 +402,7 @@ class SparseVoxelMapVoxel(object):
 
         # TODO: weights could also be confidence, inv distance from camera, etc
         if world_xyz.nelement() > 0:
+            self.voxel_pcd.clear_points(camera_K, camera_pose)
             self.voxel_pcd.add(world_xyz, features=feats, rgb=rgb, weights=None)
 
         if self._add_local_radius_points:
