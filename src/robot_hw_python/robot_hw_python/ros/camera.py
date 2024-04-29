@@ -21,7 +21,7 @@ class RosCamera(Camera):
         self,
         ros_client,
         name: str = "/camera/color",
-        verbose: bool = False,
+        verbose: bool = True,
         rotations: int = 0,
         buffer_size: int = None,
     ):
@@ -41,6 +41,7 @@ class RosCamera(Camera):
         self._img = None
         self._t = Time()
         self._lock = threading.Lock()
+        print(name)
         self._camera_info_topic = name + "/camera_info"
 
         if verbose:

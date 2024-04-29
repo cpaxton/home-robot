@@ -11,7 +11,7 @@ import numpy as np
 
 # from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 import rclpy
-import sophus as sp
+import sophuspy as sp
 import tf2_ros
 from control_msgs.action import FollowJointTrajectory
 from geometry_msgs.msg import PointStamped, Pose, PoseStamped, Twist
@@ -45,8 +45,8 @@ from robot_hw_python.ros.lidar import RosLidar
 from robot_hw_python.ros.utils import matrix_from_pose_msg
 from robot_hw_python.ros.visualizer import Visualizer
 
-DEFAULT_COLOR_TOPIC = "/camera/camera/color"
-DEFAULT_DEPTH_TOPIC = "/camera/camera/depth"
+DEFAULT_COLOR_TOPIC = "/camera/color"
+DEFAULT_DEPTH_TOPIC = "/camera/depth"
 DEFAULT_LIDAR_TOPIC = "/scan"
 
 
