@@ -93,7 +93,11 @@ class RosCamera(Camera):
             print(cam_info)
             print("---------------")
         self.frame_id = cam_info.header.frame_id
-        if self.name.split("/")[3] == "color":
+
+        # Get the 
+        if verbose:
+            print("... this is the", self.name.split("/")[-1], "camera.")
+        if self.name.split("/")[-1] == "color":
             self.topic_name = name + "/image_raw"
         else:
             self.topic_name = name + "/image_rect_raw"
