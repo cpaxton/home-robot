@@ -12,6 +12,7 @@ import click
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
+import rclpy
 import torch
 from PIL import Image
 
@@ -28,9 +29,11 @@ from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
 from home_robot.utils.visualization import get_x_and_y_from_path
 from robot_hw_python.remote import StretchClient
-from robot_hw_python.ros.grasp_helper import GraspClient as RosGraspClient
+
+# from robot_hw_python.ros.grasp_helper import GraspClient as RosGraspClient
 from robot_hw_python.ros.visualizer import Visualizer
-from robot_hw_python.utils.grasping import GraspPlanner
+
+# from robot_hw_python.utils.grasping import GraspPlanner
 
 
 @click.command()
@@ -131,7 +134,9 @@ def main(
     )
 
     print("- Start robot agent with data collection")
-    grasp_client = GraspPlanner(robot, env=None, semantic_sensor=semantic_sensor)
+    grasp_client = (
+        None  # GraspPlanner(robot, env=None, semantic_sensor=semantic_sensor)
+    )
     demo = RobotAgent(
         robot, semantic_sensor, parameters, rpc_stub=stub, grasp_client=grasp_client
     )
@@ -142,11 +147,6 @@ def main(
         print(f"Currently {len(matches)} matches for {object_to_find}.")
     else:
         matches = []
-
-    # Run grasping test - just grab whatever is in front of the robot
-    if test_grasping:
-        do_manipulation_test(demo, object_to_find, location_to_place)
-        return
 
     if parameters["in_place_rotation_steps"] > 0:
         demo.rotate_in_place(
@@ -248,4 +248,5 @@ def main(
 
 
 if __name__ == "__main__":
+    rclpy.init()
     main()
