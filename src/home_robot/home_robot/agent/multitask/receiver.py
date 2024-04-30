@@ -4,9 +4,10 @@ import time
 import timeit
 
 import cv2
-import rclpy
 import numpy as np
+import rclpy
 import zmq
+
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import show_point_cloud
 
@@ -50,11 +51,12 @@ class HomeRobotZmqClient:
             output["depth"] = depth / 1000.0
 
             if camera is None:
-                camera = Camera.from_K(output["camera_K"], output["rgb_height"], output["rgb_width"])
+                camera = Camera.from_K(
+                    output["camera_K"], output["rgb_height"], output["rgb_width"]
+                )
 
-            breakpoint()
             output["xyz"] = camera.depth_to_xyz(output["depth"])
-            show_point_cloud(output["xyz"], output["rgb"] / 255., orig=np.zeros(3))
+            # show_point_cloud(output["xyz"], output["rgb"] / 255., orig=np.zeros(3))
 
             t1 = timeit.default_timer()
             dt = t1 - t0

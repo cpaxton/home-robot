@@ -40,7 +40,9 @@ def main(port=4401, use_remote_computer: bool = True):
 
         # Make both into jpegs
         _, rgb = cv2.imencode(".jpg", rgb, [cv2.IMWRITE_JPEG_QUALITY, 90])
-        _, depth = cv2.imencode(".jpg", depth, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        _, depth = cv2.imencode(
+            ".jp2", depth, [cv2.IMWRITE_JPEG2000_COMPRESSION_X1000, 800]
+        )
 
         # Get the other fields from an observation
         data = {
