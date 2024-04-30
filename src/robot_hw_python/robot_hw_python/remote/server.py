@@ -9,7 +9,7 @@ import zmq
 from robot_hw_python.remote import StretchClient
 
 
-def main(port=4401, use_remote_computer: bool = False):
+def main(port=4401, use_remote_computer: bool = True):
     rclpy.init()
     client = StretchClient()
 
