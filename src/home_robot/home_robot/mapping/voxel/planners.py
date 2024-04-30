@@ -38,7 +38,7 @@ def plan_to_frontier(
     if not start_is_valid:
         return PlanResult(False, reason="invalid start state")
     for goal in space.sample_closest_frontier(
-        start, verbose=verbose, debug=debug, expand_size=expand_frontier_size
+        [0, 0, 0], verbose=verbose, debug=debug, expand_size=expand_frontier_size
     ):
         if goal is None:
             failed = True
