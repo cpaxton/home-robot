@@ -190,7 +190,7 @@ class StretchNavigationClient(AbstractControlModule):
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
         else:
             xyt_goal = xyt
-        self._ros_client.get_logger().info(f"XYT Goal {xyt_goal}")
+        self._ros_client.get_logger().info(f"Sending XYT Goal {xyt_goal=}")
 
         # Clear self.at_goal
         self._ros_client.at_goal = False
@@ -201,13 +201,13 @@ class StretchNavigationClient(AbstractControlModule):
         self._ros_client.goal_visualizer(goal_matrix)
         msg = matrix_to_pose_msg(goal_matrix)
 
-        self._ros_client.get_logger().info("Setting goto service call")
+        # self._ros_client.get_logger().info("Setting goto service call")
         self._ros_client.goto_on_service.call(Trigger.Request())
-        self._ros_client.get_logger().info("Goto service call set")
+        # self._ros_client.get_logger().info("Goto service call set")
 
         self._ros_client.goal_pub.publish(msg)
 
-        self._ros_client.get_logger().info("Waiting for completion")
+        # self._ros_client.get_logger().info("Waiting for completion")
         self._register_wait(self._wait_for_goal_reached)
         if blocking:
             self.wait()
