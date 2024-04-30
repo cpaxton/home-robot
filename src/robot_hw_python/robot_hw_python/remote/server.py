@@ -41,9 +41,15 @@ def main(port=4401, use_remote_computer: bool = True):
         _, rgb = cv2.imencode(".jpg", rgb, [cv2.IMWRITE_JPEG_QUALITY, 90])
         _, depth = cv2.imencode(".jpg", depth, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
+        # Get the other fields from an observation
         data = {
             "rgb": rgb,
             "depth": depth,
+            "camera_K": obs.camera_K.cpu().numpy(),
+            "camera_pose": obs.camera_pose,
+            "joint": obs.joint,
+            "gps": obs.gps,
+            "compass": obs.compass,
         }
 
         socket.send_pyobj(data)
