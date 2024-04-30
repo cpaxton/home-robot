@@ -6,6 +6,7 @@ import timeit
 import cv2
 import rclpy
 import zmq
+from home_robot.utils.image import Camera
 
 
 class HomeRobotZmqClient:
@@ -38,10 +39,16 @@ class HomeRobotZmqClient:
         sum_time = 0
         steps = 0
         t0 = timeit.default_timer()
+        first_frame = True
+        camera = None
         while True:
             output = self.socket.recv_pyobj()
             output["rgb"] = cv2.imdecode(output["rgb"], cv2.IMREAD_COLOR)
             output["depth"] = cv2.imdecode(output["depth"], cv2.IMREAD_COLOR) / 1000.0
+
+            if first_frame:
+                camera = Camera.from_K(output["camera_K"], output["rgb_height"], output["rgb_width"])
+
             t1 = timeit.default_timer()
             dt = t1 - t0
             sum_time += dt
