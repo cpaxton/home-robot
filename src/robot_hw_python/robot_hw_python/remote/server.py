@@ -1,3 +1,5 @@
+# (c) 2024 chris paxton under MIT license
+
 import rclpy
 import zmq
 
