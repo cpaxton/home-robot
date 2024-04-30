@@ -1,8 +1,10 @@
-# (c) 2024 chris paxton under MIT license
+# (c) 2024 chris paxton for Hello Robot, under MIT license
 
 import time
 import timeit
 
+import cv2
+import numpy as np
 import rclpy
 import zmq
 
@@ -31,6 +33,13 @@ def main(port=4401, use_remote_computer: bool = True):
         # get information
         obs = client.get_observation()
         rgb, depth = obs.rgb, obs.depth
+
+        # Convert depth into int format
+        depth = (depth * 1000).astype(np.uint16)
+
+        # Make both into jpegs
+        _, rgb = cv2.imencode(".jpg", rgb, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        _, depth = cv2.imencode(".jpg", depth, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
         data = {
             "rgb": rgb,

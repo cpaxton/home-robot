@@ -3,6 +3,7 @@
 import time
 import timeit
 
+import cv2
 import rclpy
 import zmq
 
@@ -39,6 +40,8 @@ class HomeRobotZmqClient:
         t0 = timeit.default_timer()
         while True:
             output = self.socket.recv_pyobj()
+            output["rgb"] = cv2.imdecode(output["rgb"], cv2.IMREAD_COLOR)
+            output["depth"] = cv2.imdecode(output["depth"], cv2.IMREAD_COLOR) / 1000.0
             t1 = timeit.default_timer()
             dt = t1 - t0
             sum_time += dt
