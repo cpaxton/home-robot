@@ -7,10 +7,10 @@ from collections import deque
 
 import numpy as np
 import rclpy
-from home_robot.utils.image import Camera
 from rclpy.time import Time
 from sensor_msgs.msg import CameraInfo, Image
 
+from home_robot.utils.image import Camera
 from robot_hw_python.ros.msg_numpy import image_to_numpy
 
 
@@ -47,19 +47,18 @@ class RosCamera(Camera):
         if verbose:
             print("Waiting for camera info on", self._camera_info_topic + "...")
 
-        self.camera_info = None
         self._info_sub = self._ros_client.create_subscription(
             CameraInfo, self._camera_info_topic, self.cam_info_callback, 100
         )
-        self.wait_for_camera_info()
-        cam_info = self.camera_info
+        cam_info = self.wait_for_camera_info()
         print("Camera info:", cam_info)
 
         # Buffer
         self.buffer_size = buffer_size
         if self.buffer_size is not None:
             # create buffer
-            self._buffer = deque()
+            self._buffer: deque = deque()
+
         self.height = cam_info.height
         self.width = cam_info.width
         self.pos, self.orn, self.pose_matrix = None, None, None
@@ -94,25 +93,26 @@ class RosCamera(Camera):
             print("---------------")
         self.frame_id = cam_info.header.frame_id
 
-        # Get the 
+        # Get the
         if verbose:
             print("... this is the", self.name.split("/")[-1], "camera.")
-        if self.name.split("/")[-1] == "color":
-            self.topic_name = name + "/image_raw"
-        else:
-            self.topic_name = name + "/image_rect_raw"
-        self._sub = self._ros_client.create_subscription(Image, self.topic_name, self._cb, 1)
+        self.topic_name = name + "/image_raw"
+        self._sub = self._ros_client.create_subscription(
+            Image, self.topic_name, self._cb, 1
+        )
 
     def cam_info_callback(self, msg):
         """Camera Info callback"""
         self.camera_info = msg
 
-    def wait_for_camera_info(self):
+    def wait_for_camera_info(self) -> CameraInfo:
         """Wait until you get the camera info"""
 
+        self.camera_info = None
         rate = self._ros_client.create_rate(100)
         while self.camera_info is None:
             rate.sleep()
+        return self.camera_info
 
     def _cb(self, msg):
         """capture the latest image and save it"""

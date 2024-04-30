@@ -585,17 +585,11 @@ class RobotAgent:
 
     def say(self, msg: str):
         """Provide input either on the command line or via chat client"""
-        if self.chat is not None:
-            self.chat.output(msg)
-        else:
-            print(msg)
+        print(msg)
 
     def ask(self, msg: str) -> str:
         """Receive input from the user either via the command line or something else"""
-        if self.chat is not None:
-            return self.chat.input(msg)
-        else:
-            return input(msg)
+        return input(msg)
 
     def get_command(self):
         if (
