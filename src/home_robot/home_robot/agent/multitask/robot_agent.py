@@ -633,7 +633,6 @@ class RobotAgent:
         obs = self.robot.get_observation()
         self.obs_history.append(obs)
         self.obs_count += 1
-        obs_count = self.obs_count
         # Semantic prediction
         if self.semantic_sensor is not None:
             obs = self.semantic_sensor.predict(obs)
@@ -642,18 +641,6 @@ class RobotAgent:
         if visualize_map:
             # Now draw 2d maps to show waht was happening
             self.voxel_map.get_2d_map(debug=True)
-
-        # Send message to user interface
-        if self.chat is not None:
-            publish_obs(self.space, self.path, self.current_state, obs_count)
-
-        # self.save_svm(".")
-        # TODO: remove stupid debug things
-        # instances = self.voxel_map.get_instances()
-        # for ins in instances:
-        #     if len(ins.instance_views) >= 10:
-        #         import pdb; pdb.set_trace()
-        # self.voxel_map.show()
 
     def plan_to_instance(
         self,
@@ -842,7 +829,7 @@ class RobotAgent:
     def print_found_classes(self, goal: Optional[str] = None):
         """Helper. print out what we have found according to detic."""
         if self.semantic_sensor is None:
-            logger.warn("Tried to print classes without semantic sensor!")
+            logger.warning("Tried to print classes without semantic sensor!")
             return
 
         instances = self.voxel_map.get_instances()
