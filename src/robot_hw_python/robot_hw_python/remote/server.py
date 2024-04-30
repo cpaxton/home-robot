@@ -33,6 +33,7 @@ def main(port=4401, use_remote_computer: bool = True):
         # get information
         obs = client.get_observation()
         rgb, depth = obs.rgb, obs.depth
+        width, height = rgb.shape[:2]
 
         # Convert depth into int format
         depth = (depth * 1000).astype(np.uint16)
@@ -50,6 +51,8 @@ def main(port=4401, use_remote_computer: bool = True):
             "joint": obs.joint,
             "gps": obs.gps,
             "compass": obs.compass,
+            "rgb_width": width,
+            "rgb_height": height,
         }
 
         socket.send_pyobj(data)
