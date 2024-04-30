@@ -37,12 +37,13 @@ class HomeRobotZmqClient:
         self.socket.connect(self.address)
         print("...connected.")
 
-    def blocking_spin(self):
+    def blocking_spin(self, headless: bool = True):
         """this is just for testing"""
         sum_time = 0
         steps = 0
         t0 = timeit.default_timer()
         camera = None
+        shown_point_cloud = not headless
         while True:
             output = self.socket.recv_pyobj()
             output["rgb"] = cv2.imdecode(output["rgb"], cv2.IMREAD_COLOR)
@@ -56,7 +57,9 @@ class HomeRobotZmqClient:
                 )
 
             output["xyz"] = camera.depth_to_xyz(output["depth"])
-            # show_point_cloud(output["xyz"], output["rgb"] / 255., orig=np.zeros(3))
+            if not shown_point_cloud:
+                show_point_cloud(output["xyz"], output["rgb"] / 255., orig=np.zeros(3))
+                shown_point_cloud = True
 
             t1 = timeit.default_timer()
             dt = t1 - t0
@@ -74,4 +77,4 @@ if __name__ == "__main__":
         port=4401,
         use_remote_computer=True,
     )
-    client.blocking_spin()
+    client.blocking_spin(headless=False)
