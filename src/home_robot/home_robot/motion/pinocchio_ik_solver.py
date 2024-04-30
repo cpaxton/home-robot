@@ -6,7 +6,6 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pinocchio
-from loguru import logger
 from scipy.spatial.transform import Rotation as R
 
 from home_robot.motion.bullet import PybulletIKSolver
@@ -41,31 +40,10 @@ class PinocchioIKSolver(IKSolverBase):
         self.q_neutral = pinocchio.neutral(self.model)
 
         self.ee_frame_idx = [f.name for f in self.model.frames].index(ee_link_name)
-
-        self.controlled_joints_by_name = {}
-        self.controlled_joints = []
-        self.controlled_joint_names = controlled_joints
-        for joint in controlled_joints:
-            if joint == "ignore":
-                idx = -1
-            else:
-                jid = self.model.getJointId(joint)
-                if jid not in self.model.idx_qs:
-                    logger.error(f"{joint=} {jid=} not in model.idx_qs")
-                    raise RuntimeError(
-                        f"Invalid urdf at {urdf_path=}: missing {joint=}"
-                    )
-                    idx = -1
-                else:
-                    idx = self.model.idx_qs[jid]
-            self.controlled_joints.append(idx)
-            self.controlled_joints_by_name[joint] = idx
-
-        logger.info(f"{controlled_joints=}")
-        for j in controlled_joints:
-            idx = self.model.getJointId(j)
-            idx_q = self.model.idx_qs[idx]
-            logger.info(f"{j=} {idx=} {idx_q=}")
+        self.controlled_joints = [
+            self.model.idx_qs[self.model.getJointId(j)] if j != "ignore" else -1
+            for j in controlled_joints
+        ]
 
     def get_dof(self) -> int:
         """returns dof for the manipulation chain"""
