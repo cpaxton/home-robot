@@ -42,12 +42,6 @@ class PinocchioIKSolver(IKSolverBase):
 
         self.ee_frame_idx = [f.name for f in self.model.frames].index(ee_link_name)
 
-        logger.info(f"{controlled_joints=}")
-        for j in controlled_joints:
-            idx = self.model.getJointId(j)
-            idx_q = self.model.idx_qs[idx]
-            logger.info(f"{j=} {idx=} {idx_q=}")
-
         self.controlled_joints_by_name = {}
         self.controlled_joints = []
         self.controlled_joint_names = controlled_joints
@@ -66,6 +60,12 @@ class PinocchioIKSolver(IKSolverBase):
                     idx = self.model.idx_qs[jid]
             self.controlled_joints.append(idx)
             self.controlled_joints_by_name[joint] = idx
+
+        logger.info(f"{controlled_joints=}")
+        for j in controlled_joints:
+            idx = self.model.getJointId(j)
+            idx_q = self.model.idx_qs[idx]
+            logger.info(f"{j=} {idx=} {idx_q=}")
 
     def get_dof(self) -> int:
         """returns dof for the manipulation chain"""
