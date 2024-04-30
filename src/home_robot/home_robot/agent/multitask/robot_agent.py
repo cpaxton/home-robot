@@ -190,6 +190,7 @@ class RobotAgent:
                 derivative_filter_threshold=parameters.get(
                     "filters/derivative_filter_threshold", 0.5
                 ),
+                use_instance_memory=(self.semantic_sensor is not None),
                 instance_memory_kwargs={
                     "min_pixels_for_instance_view": parameters.get(
                         "min_pixels_for_instance_view", 100
