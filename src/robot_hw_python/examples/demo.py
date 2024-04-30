@@ -129,16 +129,17 @@ def main(
     object_to_find, location_to_place = parameters.get_task_goals()
 
     print("- Create semantic sensor based on detic")
-    config, semantic_sensor = create_semantic_sensor(
-        device_id=device_id, verbose=verbose
-    )
+    # _, semantic_sensor = create_semantic_sensor(
+    #    device_id=device_id, verbose=verbose
+    # )
+    semantic_sensor = None
 
     print("- Start robot agent with data collection")
     grasp_client = (
         None  # GraspPlanner(robot, env=None, semantic_sensor=semantic_sensor)
     )
     demo = RobotAgent(
-        robot, semantic_sensor, parameters, rpc_stub=stub, grasp_client=grasp_client
+        robot, parameters, semantic_sensor, rpc_stub=stub, grasp_client=grasp_client
     )
     demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
     if object_to_find is not None:

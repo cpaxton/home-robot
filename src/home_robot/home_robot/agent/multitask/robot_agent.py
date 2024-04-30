@@ -17,7 +17,6 @@ from atomicwrites import atomic_write
 from loguru import logger
 from PIL import Image
 from torchvision import transforms
-# from transformers import Owlv2ForObjectDetection, Owlv2Processor
 
 from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
@@ -34,6 +33,7 @@ from home_robot.motion import (
     Shortcut,
     SimplifyXYT,
 )
+from home_robot.perception import OvmmPerception
 from home_robot.perception.encoders import get_encoder
 from home_robot.utils.demo_chat import (
     DemoChat,
@@ -41,6 +41,8 @@ from home_robot.utils.demo_chat import (
     stop_demo_ui_server,
 )
 from home_robot.utils.threading import Interval
+
+# from transformers import Owlv2ForObjectDetection, Owlv2Processor
 
 
 def publish_obs(
@@ -124,8 +126,8 @@ class RobotAgent:
     def __init__(
         self,
         robot: RobotClient,
-        semantic_sensor,
         parameters: Dict[str, Any],
+        semantic_sensor: Optional[OvmmPerception] = None,
         grasp_client: Optional[GraspClient] = None,
         voxel_map: Optional[SparseVoxelMap] = None,
         rpc_stub=None,
@@ -239,26 +241,6 @@ class RobotAgent:
         print(f"Writing logs to {self.path}")
         os.makedirs(self.path, exist_ok=True)
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
-
-        # Assume this will only be needed for hw demo, but not for sim
-        if parameters["start_ui_server"]:
-            with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
-                pickle.dump(self.semantic_sensor.seg_id_to_name, f)
-
-        if parameters["start_ui_server"]:
-            start_demo_ui_server()
-        if parameters["chat"]:
-            self.chat = DemoChat(f"{self.path}/demo_chat.json")
-            if self.parameters["limited_obs_publish_sleep"] > 0:
-                self._publisher = Interval(
-                    self.publish_limited_obs,
-                    sleep_time=self.parameters["limited_obs_publish_sleep"],
-                )
-            else:
-                self._publisher = None
-        else:
-            self.chat = None
-            self._publisher = None
 
         self.openai_key = None
         self.task = None
@@ -632,9 +614,6 @@ class RobotAgent:
         if self.parameters["start_ui_server"]:
             print("- Stopping UI server...")
             stop_demo_ui_server()
-        if self._publisher is not None:
-            print("- Stopping publisher...")
-            self._publisher.cancel()
         print("... Done.")
 
     def publish_limited_obs(self):
@@ -661,7 +640,8 @@ class RobotAgent:
         self.obs_count += 1
         obs_count = self.obs_count
         # Semantic prediction
-        obs = self.semantic_sensor.predict(obs)
+        if self.semantic_sensor is not None:
+            obs = self.semantic_sensor.predict(obs)
         self.voxel_map.add_obs(obs)
         # Add observation - helper function will unpack it
         if visualize_map:
@@ -866,6 +846,10 @@ class RobotAgent:
 
     def print_found_classes(self, goal: Optional[str] = None):
         """Helper. print out what we have found according to detic."""
+        if self.semantic_sensor is None:
+            logger.warn("Tried to print classes without semantic sensor!")
+            return
+
         instances = self.voxel_map.get_instances()
         if goal is not None:
             print(f"Looking for {goal}.")
@@ -876,8 +860,6 @@ class RobotAgent:
             print(i, name, instance.score)
 
     def start(self, goal: Optional[str] = None, visualize_map_at_start: bool = False):
-        if self._publisher is not None:
-            self._publisher.start()
         # Tuck the arm away
         print("Sending arm to  home...")
         self.robot.switch_to_manipulation_mode()
