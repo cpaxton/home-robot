@@ -2,7 +2,9 @@
 
 import time
 import timeit
+from typing import Optional
 
+import click
 import cv2
 import numpy as np
 import rclpy
@@ -17,19 +19,37 @@ class ZmqServer:
         send_port: int = 4401,
         recv_port: int = 4402,
         use_remote_computer: bool = True,
+        desktop_ip: Optional[str] = "192.168.1.10",
     ):
         self.client = StretchClient()
 
-        context = zmq.Context()
-        socket = context.socket(zmq.PUB)
-        socket.setsockopt(zmq.SNDHWM, 1)
-        socket.setsockopt(zmq.RCVHWM, 1)
+        self.context = zmq.Context()
+
+        # Set up the publisher socket using ZMQ
+        self.send_socket = self.context.socket(zmq.PUB)
+        self.send_socket.setsockopt(zmq.SNDHWM, 1)
+        self.send_socket.setsockopt(zmq.RCVHWM, 1)
+
+        # Set up the receiver/subscriber using ZMQ
+        self.recv_socket = self.context.socket(zmq.SUB)
+        self.recv_socket.setsockopt(zmq.SUBSCRIBE, b"")
+        self.recv_socket.setsockopt(zmq.SNDHWM, 1)
+        self.recv_socket.setsockopt(zmq.RCVHWM, 1)
+        self.recv_socket.setsockopt(zmq.CONFLATE, 1)
+
+        # Make connections
         if use_remote_computer:
             address = "tcp://*:" + str(send_port)
+            assert desktop_ip is not None, "must provide a valid IP address for remote"
         else:
-            address = "tcp://127.0.0.1:" + str(send_port)
-        socket.bind(address)
-        self.send_socket = socket
+            desktop_ip = "127.0.0.1"
+            address = f"tcp://{desktop_ip}:" + str(send_port)
+        recv_address = f"tcp://{desktop_ip}:{recv_port}"
+        print(f"Publishing on {address}...")
+        self.send_socket.bind(address)
+        print(f"Waiting for actions on {recv_address}...")
+        self.recv_socket.connect(recv_address)
+        print("Done!")
 
     def spin_send(self):
 
@@ -66,6 +86,13 @@ class ZmqServer:
             }
 
             self.send_socket.send_pyobj(data)
+            try:
+                action = self.recv_socket.recv_pyobj(flags=zmq.NOBLOCK)
+            except zmq.Again:
+                print(" - no action received")
+                action = None
+            if action is not None:
+                print(f"Action received: {action}")
             t1 = timeit.default_timer()
             dt = t1 - t0
             sum_time += dt
@@ -78,13 +105,17 @@ class ZmqServer:
 
 
 def main(
-    send_port: int = 4401, recv_port: int = 4402, use_remote_computer: bool = True
+    send_port: int = 4401,
+    recv_port: int = 4402,
+    desktop_ip: str = "192.168.1.10",
+    local: bool = True,
 ):
     rclpy.init()
     server = ZmqServer(
         send_port=send_port,
         recv_port=recv_port,
-        use_remote_computer=use_remote_computer,
+        desktop_ip=desktop_ip,
+        use_remote_computer=(not local),
     )
     server.spin_send()
 
