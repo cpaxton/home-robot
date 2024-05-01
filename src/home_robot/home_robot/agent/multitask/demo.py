@@ -37,6 +37,10 @@ from home_robot.utils.visualization import get_x_and_y_from_path
 
 
 @click.command()
+@click.option("--local", is_flag=True, help="Run code locally on the robot.")
+@click.option("--recv_port", default=4401, help="Port to receive observations on")
+@click.option("--send_port", default=4402, help="Port to send actions to on the robot")
+@click.option("--robot_ip", default="192.168.1.15")
 @click.option("--rate", default=5, type=int)
 @click.option("--visualize", default=False, is_flag=True)
 @click.option("--manual-wait", default=False, is_flag=True)
@@ -89,7 +93,12 @@ def main(
     parameter_file: str = "src/robot_hw_python/configs/default.yaml",
     **kwargs,
 ):
-    robot = HomeRobotZmqClient()
+    client = HomeRobotZmqClient(
+        robot_ip=robot_ip,
+        recv_port=recv_port,
+        send_port=send_port,
+        use_remote_computer=(not local),
+    )
     # Call demo_main with all the arguments
     demo_main(robot, rate=rate, visualize=visualize, manual_wait=manual_wait, output_filename=output_filename, navigate_home=navigate_home, device_id=device_id, verbose=verbose, show_intermediate_maps=show_intermediate_maps, show_final_map=show_final_map, show_paths=show_paths, random_goals=random_goals, test_grasping=test_grasping, force_explore=force_explore, no_manip=no_manip, explore_iter=explore_iter, use_vlm=use_vlm, vlm_server_addr=vlm_server_addr, vlm_server_port=vlm_server_port, write_instance_images=write_instance_images, parameter_file=parameter_file, **kwargs)
 
