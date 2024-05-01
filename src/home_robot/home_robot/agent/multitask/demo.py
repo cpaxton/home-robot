@@ -22,6 +22,7 @@ import home_robot.utils.depth as du
 from home_robot.agent.multitask import get_parameters
 from home_robot.agent.multitask.receiver import HomeRobotZmqClient
 from home_robot.agent.multitask.robot_agent import RobotAgent
+from home_robot.core.robot import RobotClient
 from home_robot.perception import create_semantic_sensor
 
 # Import planning tools for exploration
@@ -65,7 +66,8 @@ from home_robot.utils.visualization import get_x_and_y_from_path
     help="write out images of every object we found",
 )
 @click.option("--parameter-file", default="src/robot_hw_python/configs/default.yaml")
-def main(
+def demo_main(
+    robot: RobotClient,
     rate,
     visualize,
     manual_wait,
@@ -120,7 +122,6 @@ def main(
 
     click.echo("Will connect to a Stretch robot and collect a short trajectory.")
     print("- Connect to Stretch")
-    robot = HomeRobotZmqClient()
     robot.navigate_to([0, 0, 0])
 
     if explore_iter >= 0:
@@ -248,4 +249,5 @@ def main(
 
 
 if __name__ == "__main__":
-    main()
+    robot = HomeRobotZmqClient()
+    demo_main(robot)
