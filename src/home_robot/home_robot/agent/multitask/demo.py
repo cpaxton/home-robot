@@ -186,7 +186,6 @@ def demo_main(
 
     click.echo("Will connect to a Stretch robot and collect a short trajectory.")
     print("- Connect to Stretch")
-    robot.navigate_to([0, 0, 0])
 
     if explore_iter >= 0:
         parameters["exploration_steps"] = explore_iter
@@ -202,10 +201,16 @@ def demo_main(
     grasp_client = (
         None  # GraspPlanner(robot, env=None, semantic_sensor=semantic_sensor)
     )
+
     demo = RobotAgent(
         robot, parameters, semantic_sensor, rpc_stub=stub, grasp_client=grasp_client
     )
     demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
+
+    print("- Reset robot to [0, 0, 0]")
+    robot.navigate_to([0, 0, 0])
+    input("Press Enter to continue...")
+
     if object_to_find is not None:
         print(f"\nSearch for {object_to_find} and {location_to_place}")
         matches = demo.get_found_instances_by_class(object_to_find)

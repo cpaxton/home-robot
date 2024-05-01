@@ -226,7 +226,7 @@ class HomeRobotZmqClient(RobotClient):
         """Open loop trajectory execution"""
         raise NotImplementedError()
 
-    def blocking_spin(self, verbose: bool = True, visualize: bool = False):
+    def blocking_spin(self, verbose: bool = False, visualize: bool = False):
         """this is just for testing"""
         sum_time = 0
         steps = 0
