@@ -66,6 +66,33 @@ from home_robot.utils.visualization import get_x_and_y_from_path
     help="write out images of every object we found",
 )
 @click.option("--parameter-file", default="src/robot_hw_python/configs/default.yaml")
+def main(
+    rate,
+    visualize,
+    manual_wait,
+    output_filename,
+    navigate_home: bool = True,
+    device_id: int = 0,
+    verbose: bool = True,
+    show_intermediate_maps: bool = False,
+    show_final_map: bool = False,
+    show_paths: bool = False,
+    random_goals: bool = True,
+    test_grasping: bool = False,
+    force_explore: bool = False,
+    no_manip: bool = False,
+    explore_iter: int = 10,
+    use_vlm: bool = False,
+    vlm_server_addr: str = "127.0.0.1",
+    vlm_server_port: str = "50054",
+    write_instance_images: bool = False,
+    parameter_file: str = "src/robot_hw_python/configs/default.yaml",
+    **kwargs,
+):
+    robot = HomeRobotZmqClient()
+    pass
+
+
 def demo_main(
     robot: RobotClient,
     rate,
@@ -249,5 +276,4 @@ def demo_main(
 
 
 if __name__ == "__main__":
-    robot = HomeRobotZmqClient()
-    demo_main(robot)
+    main()
