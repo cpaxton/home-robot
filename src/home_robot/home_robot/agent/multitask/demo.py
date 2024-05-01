@@ -97,7 +97,7 @@ def main(
          robot_ip: str = "192.168.1.15",
     **kwargs,
 ):
-    client = HomeRobotZmqClient(
+    robot = HomeRobotZmqClient(
         robot_ip=robot_ip,
         recv_port=recv_port,
         send_port=send_port,
