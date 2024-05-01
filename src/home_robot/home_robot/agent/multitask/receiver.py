@@ -230,7 +230,8 @@ class HomeRobotZmqClient(RobotClient):
         return observation
 
     def send_action(self):
-        print("sending", self._next_action)
+        """Send the next action to the robot"""
+        print("-> sending", self._next_action)
         blocking = False
         block_id = None
         with self._act_lock:
@@ -242,12 +243,10 @@ class HomeRobotZmqClient(RobotClient):
             self.send_socket.send_pyobj(self._next_action)
             # Empty it out for the next one
             self._next_action = dict()
-            time.sleep(0.2)
 
         if blocking:
             # Wait for the command to
             self._wait_for_action(block_id)
-        print("done sending")
 
     def execute_trajectory(
         self,
