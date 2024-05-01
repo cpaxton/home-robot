@@ -233,12 +233,6 @@ class HomeRobotZmqClient(RobotClient):
                 )
             t0 = timeit.default_timer()
 
-            if self._control_mode == "navigation":
-                self.move_to_manip_posture()
-            elif self._control_mode == "manipulation":
-                self.move_to_nav_posture()
-                self.navigate_to([0, 0, 0], relative=False, blocking=True)
-
 
 @click.command()
 @click.option("--local", is_flag=True, help="Run code locally on the robot.")
