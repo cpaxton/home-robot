@@ -105,9 +105,11 @@ class ZmqServer:
                 print(" - no action received")
                 action = None
             print(f" - {control_mode=}")
+            print(f" - prev action step: {self._last_step}")
             if action is not None:
-                print(f"Action received: {action}")
+                print(f" - Action received: {action}")
                 self._last_step = action.get("step", -1)
+                print(f" - last action step: {self._last_step}")
                 if "posture" in action:
                     if action["posture"] == "manipulation":
                         self.client.move_to_manip_posture()
