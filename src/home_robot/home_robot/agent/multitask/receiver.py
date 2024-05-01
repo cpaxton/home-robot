@@ -135,6 +135,8 @@ class HomeRobotZmqClient(RobotClient):
         steps = 0
         t0 = timeit.default_timer()
         camera = None
+        shown_point_cloud = visualize
+
         while True:
             output = self.recv_socket.recv_pyobj()
             if output is None:
@@ -150,8 +152,10 @@ class HomeRobotZmqClient(RobotClient):
                 )
 
             output["xyz"] = camera.depth_to_xyz(output["depth"])
-            if visualize:
+
+            if visualize and not shown_point_cloud:
                 show_point_cloud(output["xyz"], output["rgb"] / 255.0, orig=np.zeros(3))
+                shown_point_cloud = True
 
             self._update_obs(output)
             with self._act_lock:
