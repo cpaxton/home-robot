@@ -2,6 +2,8 @@
 
 import time
 import timeit
+from threading import Lock
+from typing import List
 
 import click
 import cv2
@@ -9,11 +11,14 @@ import numpy as np
 import rclpy
 import zmq
 
+from home_robot.core.interfaces import ContinuousNavigationAction
+from home_robot.core.robot import RobotClient
+from home_robot.motion.robot import RobotModel
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import show_point_cloud
 
 
-class HomeRobotZmqClient:
+class HomeRobotZmqClient(RobotClient):
     def __init__(
         self,
         robot_ip: str = "192.168.1.15",
@@ -23,6 +28,7 @@ class HomeRobotZmqClient:
     ):
         self.recv_port = recv_port
         self.send_port = send_port
+        self.reset()
 
         # Create ZMQ sockets
         self.context = zmq.Context()
@@ -52,6 +58,77 @@ class HomeRobotZmqClient:
         self.recv_socket.connect(self.address)
         print("...connected.")
 
+        self._obs_lock = Lock()
+        self._act_lock = Lock()
+
+    def navigate_to(
+        self, xyt: ContinuousNavigationAction, relative=False, blocking=False
+    ):
+        """Move to xyt in global coordinates or relative coordinates."""
+        raise NotImplementedError()
+
+    def reset(self):
+        """Reset everything in the robot's internal state"""
+        self._control_mode = None
+        self._next_action = dict()
+
+    def switch_to_navigation_mode(self):
+        with self._act_lock:
+            self._next_action["control_mode"] = "navigation"
+
+    def switch_to_manipulation_mode(self):
+        with self._act_lock:
+            self._next_action["control_mode"] = "manipulation"
+
+    def move_to_nav_posture(self):
+        with self._act_lock:
+            self._next_action["posture"] = "navigation"
+
+    def move_to_manip_posture(self):
+        with self._act_lock:
+            self._next_action["posture"] = "manipulation"
+
+    def in_manipulation_mode(self) -> bool:
+        """is the robot ready to grasp"""
+        return self._control_mode == "manipulation"
+
+    def in_navigation_mode(self) -> bool:
+        """Is the robot to move around"""
+        return self._control_mode == "navigation"
+
+    def last_motion_failed(self) -> bool:
+        """Override this if you want to check to see if a particular motion failed, e.g. it was not reachable and we don't know why."""
+        return False
+
+    def start(self) -> bool:
+        """Override this if there's custom startup logic that you want to add before anything else.
+
+        Returns True if we actually should do anything (like update) after this."""
+        return False
+
+    def get_robot_model(self) -> RobotModel:
+        """return a model of the robot for planning"""
+        raise NotImplementedError()
+
+    def _update_obs(self, obs):
+        """Update observation internally with lock"""
+        with self._obs_lock:
+            self._obs = obs
+            self._control_mode = obs["control_mode"]
+
+    def execute_trajectory(
+        self,
+        trajectory: List[np.ndarray],
+        pos_err_threshold: float = 0.2,
+        rot_err_threshold: float = 0.75,
+        spin_rate: int = 10,
+        verbose: bool = False,
+        per_waypoint_timeout: float = 10.0,
+        relative: bool = False,
+    ):
+        """Open loop trajectory execution"""
+        raise NotImplementedError()
+
     def blocking_spin(self, verbose: bool = False, visualize: bool = False):
         """this is just for testing"""
         sum_time = 0
@@ -76,15 +153,29 @@ class HomeRobotZmqClient:
             if visualize:
                 show_point_cloud(output["xyz"], output["rgb"] / 255.0, orig=np.zeros(3))
 
+            self._update_obs(output)
+            with self._act_lock:
+                if len(self._next_action) > 0:
+                    # Send it
+                    self.send_socket.send_pyobj(self._next_action)
+                    # Empty it out for the next one
+                    self._next_action = dict()
+
             t1 = timeit.default_timer()
             dt = t1 - t0
             sum_time += dt
             steps += 1
             if verbose:
+                print("Control mode:", self._control_mode)
                 print(
                     f"time taken = {dt} avg = {sum_time/steps} keys={[k for k in output.keys()]}"
                 )
             t0 = timeit.default_timer()
+
+            if self._control_mode == "navigation":
+                self.move_to_manip_posture()
+            elif self._control_mode == "manipulation":
+                self.move_to_nav_posture()
 
 
 def main(local: bool = True, robot_ip: str = "192.168.1.15"):

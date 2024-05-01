@@ -72,6 +72,13 @@ class ZmqServer:
                 ".jp2", depth, [cv2.IMWRITE_JPEG2000_COMPRESSION_X1000, 800]
             )
 
+            if self.client.in_manipulation_mode():
+                control_mode = "manipulation"
+            elif self.client.in_navigation_mode():
+                control_mode = "navigation"
+            else:
+                control_mode = "none"
+
             # Get the other fields from an observation
             data = {
                 "rgb": rgb,
@@ -83,6 +90,8 @@ class ZmqServer:
                 "compass": obs.compass,
                 "rgb_width": width,
                 "rgb_height": height,
+                "control_mode": control_mode,
+                "last_motion_failed": self.client.last_motion_failed(),
             }
 
             self.send_socket.send_pyobj(data)
@@ -93,6 +102,32 @@ class ZmqServer:
                 action = None
             if action is not None:
                 print(f"Action received: {action}")
+                if "posture" in action:
+                    if action["posture"] == "manipulation":
+                        self.client.move_to_manip_posture()
+                        self.client.switch_to_manipulation_mode()
+                    elif action["posture"] == "navigation":
+                        self.client.move_to_nav_posture()
+                        self.client.switch_to_navigation_mode()
+                    else:
+                        print(
+                            " - posture",
+                            action["posture"],
+                            "not recognized or supported.",
+                        )
+                if "control_mode" in action:
+                    if action["control_mode"] == "manipulation":
+                        self.client.switch_to_manipulation_mode()
+                    elif action["control_mode"] == "navigation":
+                        self.client.switch_to_navigation_mode()
+                    else:
+                        print(
+                            " - control mode",
+                            action["control_mode"],
+                            "not recognized or supported.",
+                        )
+
+            # Finish with some speed info
             t1 = timeit.default_timer()
             dt = t1 - t0
             sum_time += dt

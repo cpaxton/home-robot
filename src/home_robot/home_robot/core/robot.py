@@ -43,6 +43,10 @@ class RobotClient(ABC):
     def switch_to_navigation_mode(self):
         raise NotImplementedError()
 
+    @abstractmethod
+    def switch_to_manipulation_mode(self):
+        raise NotImplementedError()
+
     def in_manipulation_mode(self) -> bool:
         """is the robot ready to grasp"""
         return self._base_control_mode == ControlMode.MANIPULATION

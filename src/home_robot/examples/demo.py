@@ -1,3 +1,4 @@
+# (c) 2024 Hello Robot by Chris Paxton
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
@@ -19,6 +20,7 @@ from PIL import Image
 # Mapping and perception
 import home_robot.utils.depth as du
 from home_robot.agent.multitask import get_parameters
+from home_robot.agent.multitask.receiver import HomeRobotZmqClient
 from home_robot.agent.multitask.robot_agent import RobotAgent
 from home_robot.perception import create_semantic_sensor
 
@@ -28,11 +30,8 @@ from home_robot.perception.encoders import ClipEncoder
 # Chat and UI tools
 from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
 from home_robot.utils.visualization import get_x_and_y_from_path
-from robot_hw_python.remote import StretchClient
 
 # from robot_hw_python.ros.grasp_helper import GraspClient as RosGraspClient
-from robot_hw_python.ros.visualizer import Visualizer
-
 # from robot_hw_python.utils.grasping import GraspPlanner
 
 
@@ -121,7 +120,7 @@ def main(
 
     click.echo("Will connect to a Stretch robot and collect a short trajectory.")
     print("- Connect to Stretch")
-    robot = StretchClient()
+    robot = HomeRobotZmqClient()
     robot.navigate_to([0, 0, 0])
 
     if explore_iter >= 0:
@@ -249,5 +248,4 @@ def main(
 
 
 if __name__ == "__main__":
-    rclpy.init()
     main()
