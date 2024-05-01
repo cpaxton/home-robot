@@ -46,11 +46,11 @@ class ZmqServer:
         else:
             desktop_ip = "127.0.0.1"
             address = f"tcp://{desktop_ip}:" + str(send_port)
-        recv_address = f"tcp://{desktop_ip}:{recv_port}"
+        self.recv_address = f"tcp://{desktop_ip}:{recv_port}"
         print(f"Publishing on {address}...")
         self.send_socket.bind(address)
-        print(f"Waiting for actions on {recv_address}...")
-        self.recv_socket.connect(recv_address)
+        print(f"Waiting for actions on {self.recv_address}...")
+        self.recv_socket.connect(self.recv_address)
         print("Done!")
 
     def spin_send(self):
@@ -94,6 +94,7 @@ class ZmqServer:
                 "rgb_height": height,
                 "control_mode": control_mode,
                 "last_motion_failed": self.client.last_motion_failed(),
+                "recv_address": self.recv_address,
                 "step": self._last_step,
             }
 
@@ -103,9 +104,12 @@ class ZmqServer:
             except zmq.Again:
                 print(" - no action received")
                 action = None
+            print(f" - {control_mode=}")
+            print(f" - prev action step: {self._last_step}")
             if action is not None:
-                print(f"Action received: {action}")
+                print(f" - Action received: {action}")
                 self._last_step = action.get("step", -1)
+                print(f" - last action step: {self._last_step}")
                 if "posture" in action:
                     if action["posture"] == "manipulation":
                         self.client.move_to_manip_posture()
@@ -131,6 +135,12 @@ class ZmqServer:
                             "not recognized or supported.",
                         )
                 if "xyt" in action:
+                    print(
+                        "Is robot in navigation mode?", self.client.in_navigation_mode()
+                    )
+                    print(
+                        f"{action['xyt']} {action['nav_relative']} {action['nav_blocking']}"
+                    )
                     self.client.navigate_to(
                         action["xyt"],
                         relative=action["nav_relative"],
@@ -152,13 +162,13 @@ class ZmqServer:
 @click.command()
 @click.option("--send_port", default=4401, help="Port to send observations to")
 @click.option("--recv_port", default=4402, help="Port to receive actions from")
-@click.option("--desktop_ip", default="192.168.1.10", help="IP address of desktop")
+@click.option("--desktop_ip", default="192.168.1.9", help="IP address of desktop")
 @click.option("--local", is_flag=True, help="Run code locally on the robot.")
 def main(
     send_port: int = 4401,
     recv_port: int = 4402,
     desktop_ip: str = "192.168.1.10",
-    local: bool = True,
+    local: bool = False,
 ):
     rclpy.init()
     server = ZmqServer(
