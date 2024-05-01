@@ -193,11 +193,14 @@ class HomeRobotZmqClient(RobotClient):
 @click.option("--recv_port", default=4401, help="Port to receive observations on")
 @click.option("--send_port", default=4402, help="Port to send actions to on the robot")
 @click.option("--robot_ip", default="192.168.1.15")
-def main(local: bool = True, robot_ip: str = "192.168.1.15"):
+def main(local: bool = True,
+    recv_port: int = 4401,
+    send_port: int = 4402,
+         robot_ip: str = "192.168.1.15"):
     client = HomeRobotZmqClient(
         robot_ip=robot_ip,
-        recv_port=4401,
-        send_port=4402,
+        recv_port=recv_port,
+        send_port=send_port,
         use_remote_computer=(not local),
     )
     client.blocking_spin(verbose=True, visualize=False)
