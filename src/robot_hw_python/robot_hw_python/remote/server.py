@@ -10,6 +10,7 @@ import numpy as np
 import rclpy
 import zmq
 
+from home_robot.core.interfaces import ContinuousNavigationAction
 from robot_hw_python.remote import StretchClient
 
 
@@ -126,6 +127,12 @@ class ZmqServer:
                             action["control_mode"],
                             "not recognized or supported.",
                         )
+                if "xyt" in action:
+                    self.client.navigate_to(
+                        action["xyt"],
+                        relative=action["nav_relative"],
+                        blocking=action["nav_blocking"],
+                    )
 
             # Finish with some speed info
             t1 = timeit.default_timer()

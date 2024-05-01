@@ -65,7 +65,13 @@ class HomeRobotZmqClient(RobotClient):
         self, xyt: ContinuousNavigationAction, relative=False, blocking=False
     ):
         """Move to xyt in global coordinates or relative coordinates."""
-        raise NotImplementedError()
+        if isinstance(xyt, ContinuousNavigationAction):
+            xyt = xyt.xyt
+        assert len(xyt) == 3, "xyt must be a vector of size 3"
+        with self._act_lock:
+            self._next_action["xyt"] = xyt
+            self._next_action["nav_relative"] = relative
+            self._next_action["nav_blocking"] = blocking
 
     def reset(self):
         """Reset everything in the robot's internal state"""
@@ -180,6 +186,7 @@ class HomeRobotZmqClient(RobotClient):
                 self.move_to_manip_posture()
             elif self._control_mode == "manipulation":
                 self.move_to_nav_posture()
+                self.navigate_to([0.5, 0, 0], relative=False)
 
 
 def main(local: bool = True, robot_ip: str = "192.168.1.15"):
