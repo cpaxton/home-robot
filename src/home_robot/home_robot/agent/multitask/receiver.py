@@ -114,6 +114,11 @@ class HomeRobotZmqClient(RobotClient):
             self._next_action["xyt"] = xyt
             self._next_action["nav_relative"] = relative
             self._next_action["nav_blocking"] = blocking
+        self.send_action()
+        with self._obs_lock:
+            # Clear observation
+            self._obs = None
+            _ = self.recv_socket.recv_pyobj()
 
     def reset(self):
         """Reset everything in the robot's internal state"""
@@ -126,18 +131,38 @@ class HomeRobotZmqClient(RobotClient):
     def switch_to_navigation_mode(self):
         with self._act_lock:
             self._next_action["control_mode"] = "navigation"
+        self.send_action()
+        self._wait_for_mode("navigation")
 
     def switch_to_manipulation_mode(self):
         with self._act_lock:
             self._next_action["control_mode"] = "manipulation"
+        self.send_action()
+        self._wait_for_mode("manipulation")
 
     def move_to_nav_posture(self):
         with self._act_lock:
             self._next_action["posture"] = "navigation"
+        self.send_action()
+        self._wait_for_mode("navigation")
 
     def move_to_manip_posture(self):
         with self._act_lock:
             self._next_action["posture"] = "manipulation"
+        self.send_action()
+        self._wait_for_mode("manipulation")
+
+    def _wait_for_mode(self, mode):
+        t0 = timeit.default_timer()
+        while True:
+            with self._obs_lock:
+                print(f"Waiting for mode {mode} current mode {self._control_mode}")
+                if self._control_mode == mode:
+                    break
+            time.sleep(0.1)
+            t1 = timeit.default_timer()
+            if t1 - t0 > 5.0:
+                raise RuntimeError(f"Timeout waiting for mode {mode}")
 
     def in_manipulation_mode(self) -> bool:
         """is the robot ready to grasp"""
@@ -179,6 +204,15 @@ class HomeRobotZmqClient(RobotClient):
             observation.camera_pose = self._obs.get("camera_pose", None)
         return observation
 
+    def send_action(self):
+        print("sending", self._next_action)
+        with self._act_lock:
+            # Send it
+            self.send_socket.send_pyobj(self._next_action)
+            # Empty it out for the next one
+            self._next_action = dict()
+            time.sleep(0.2)
+
     def execute_trajectory(
         self,
         trajectory: List[np.ndarray],
@@ -192,7 +226,7 @@ class HomeRobotZmqClient(RobotClient):
         """Open loop trajectory execution"""
         raise NotImplementedError()
 
-    def blocking_spin(self, verbose: bool = False, visualize: bool = False):
+    def blocking_spin(self, verbose: bool = True, visualize: bool = False):
         """this is just for testing"""
         sum_time = 0
         steps = 0
@@ -201,9 +235,11 @@ class HomeRobotZmqClient(RobotClient):
         shown_point_cloud = visualize
 
         while not self._finish:
+
             output = self.recv_socket.recv_pyobj()
             if output is None:
                 continue
+
             output["rgb"] = cv2.imdecode(output["rgb"], cv2.IMREAD_COLOR)
             compressed_depth = output["depth"]
             depth = cv2.imdecode(compressed_depth, cv2.IMREAD_UNCHANGED)
@@ -221,12 +257,8 @@ class HomeRobotZmqClient(RobotClient):
                 shown_point_cloud = True
 
             self._update_obs(output)
-            with self._act_lock:
-                if len(self._next_action) > 0:
-                    # Send it
-                    self.send_socket.send_pyobj(self._next_action)
-                    # Empty it out for the next one
-                    self._next_action = dict()
+            # with self._act_lock:
+            #    if len(self._next_action) > 0:
 
             t1 = timeit.default_timer()
             dt = t1 - t0
@@ -239,18 +271,12 @@ class HomeRobotZmqClient(RobotClient):
                 )
             t0 = timeit.default_timer()
 
-            if self._control_mode == "navigation":
-                self.move_to_manip_posture()
-            elif self._control_mode == "manipulation":
-                self.move_to_nav_posture()
-                self.navigate_to([0, 0, 0], relative=False, blocking=True)
-
     def start(self) -> bool:
         """Start running blocking thread in a separate thread"""
         self._thread = threading.Thread(target=self.blocking_spin)
         self._finish = False
         self._thread.start()
-        return False
+        return True
 
     def __del__(self):
         self._finish = True

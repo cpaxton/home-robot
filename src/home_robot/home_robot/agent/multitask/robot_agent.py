@@ -218,9 +218,14 @@ class RobotAgent:
         logger.info("Rotate in place")
         if steps <= 0:
             return False
+
+        # Put it in navigation posture
+        self.robot.move_to_nav_posture()
+
         step_size = 2 * np.pi / steps
         i = 0
         while i < steps:
+            print("rotation step i =", i + 1, "of", steps)
             self.robot.navigate_to([0, 0, step_size], relative=True, blocking=True)
             # TODO remove debug code
             # print(i, self.robot.get_base_pose())

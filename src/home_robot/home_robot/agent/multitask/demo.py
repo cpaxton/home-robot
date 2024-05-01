@@ -213,6 +213,7 @@ def demo_main(
     else:
         matches = []
 
+    # Rotate in place
     if parameters["in_place_rotation_steps"] > 0:
         demo.rotate_in_place(
             steps=parameters["in_place_rotation_steps"],
