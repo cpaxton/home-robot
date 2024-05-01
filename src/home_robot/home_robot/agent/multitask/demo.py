@@ -90,7 +90,11 @@ def main(
     vlm_server_addr: str = "127.0.0.1",
     vlm_server_port: str = "50054",
     write_instance_images: bool = False,
-    parameter_file: str = "src/robot_hw_python/configs/default.yaml",
+    parameter_file: str = "src/home_robot/config/default_planner.yaml",
+    local: bool = True,
+    recv_port: int = 4401,
+    send_port: int = 4402,
+         robot_ip: str = "192.168.1.15"
     **kwargs,
 ):
     client = HomeRobotZmqClient(
