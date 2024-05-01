@@ -69,7 +69,7 @@ from home_robot.utils.visualization import get_x_and_y_from_path
     is_flag=True,
     help="write out images of every object we found",
 )
-@click.option("--parameter-file", default="src/robot_hw_python/configs/default.yaml")
+@click.option("--parameter-file", default="src/home_robot/config/default_planner.yaml")
 def main(
     rate,
     visualize,
@@ -94,7 +94,7 @@ def main(
     local: bool = True,
     recv_port: int = 4401,
     send_port: int = 4402,
-         robot_ip: str = "192.168.1.15",
+    robot_ip: str = "192.168.1.15",
     **kwargs,
 ):
     robot = HomeRobotZmqClient(
@@ -104,7 +104,30 @@ def main(
         use_remote_computer=(not local),
     )
     # Call demo_main with all the arguments
-    demo_main(robot, rate=rate, visualize=visualize, manual_wait=manual_wait, output_filename=output_filename, navigate_home=navigate_home, device_id=device_id, verbose=verbose, show_intermediate_maps=show_intermediate_maps, show_final_map=show_final_map, show_paths=show_paths, random_goals=random_goals, test_grasping=test_grasping, force_explore=force_explore, no_manip=no_manip, explore_iter=explore_iter, use_vlm=use_vlm, vlm_server_addr=vlm_server_addr, vlm_server_port=vlm_server_port, write_instance_images=write_instance_images, parameter_file=parameter_file, **kwargs)
+    demo_main(
+        robot,
+        rate=rate,
+        visualize=visualize,
+        manual_wait=manual_wait,
+        output_filename=output_filename,
+        navigate_home=navigate_home,
+        device_id=device_id,
+        verbose=verbose,
+        show_intermediate_maps=show_intermediate_maps,
+        show_final_map=show_final_map,
+        show_paths=show_paths,
+        random_goals=random_goals,
+        test_grasping=test_grasping,
+        force_explore=force_explore,
+        no_manip=no_manip,
+        explore_iter=explore_iter,
+        use_vlm=use_vlm,
+        vlm_server_addr=vlm_server_addr,
+        vlm_server_port=vlm_server_port,
+        write_instance_images=write_instance_images,
+        parameter_file=parameter_file,
+        **kwargs,
+    )
 
 
 def demo_main(
@@ -163,7 +186,6 @@ def demo_main(
 
     click.echo("Will connect to a Stretch robot and collect a short trajectory.")
     print("- Connect to Stretch")
-    robot.navigate_to([0, 0, 0])
 
     if explore_iter >= 0:
         parameters["exploration_steps"] = explore_iter
@@ -179,10 +201,16 @@ def demo_main(
     grasp_client = (
         None  # GraspPlanner(robot, env=None, semantic_sensor=semantic_sensor)
     )
+
     demo = RobotAgent(
         robot, parameters, semantic_sensor, rpc_stub=stub, grasp_client=grasp_client
     )
     demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
+
+    print("- Reset robot to [0, 0, 0]")
+    robot.navigate_to([0, 0, 0])
+    input("Press Enter to continue...")
+
     if object_to_find is not None:
         print(f"\nSearch for {object_to_find} and {location_to_place}")
         matches = demo.get_found_instances_by_class(object_to_find)
@@ -190,6 +218,7 @@ def demo_main(
     else:
         matches = []
 
+    # Rotate in place
     if parameters["in_place_rotation_steps"] > 0:
         demo.rotate_in_place(
             steps=parameters["in_place_rotation_steps"],
@@ -272,6 +301,9 @@ def demo_main(
             # plt.show()
         else:
             pc_xyz, pc_rgb = demo.voxel_map.get_xyz_rgb()
+
+        if pc_rgb is None:
+            return
 
         # Create pointcloud and write it out
         if len(output_pcd_filename) > 0:

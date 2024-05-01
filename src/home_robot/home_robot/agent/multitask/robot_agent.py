@@ -218,13 +218,18 @@ class RobotAgent:
         logger.info("Rotate in place")
         if steps <= 0:
             return False
+
+        # Put it in navigation posture
+        self.robot.move_to_nav_posture()
+
         step_size = 2 * np.pi / steps
         i = 0
         while i < steps:
+            print("rotation step i =", i + 1, "of", steps)
             self.robot.navigate_to([0, 0, step_size], relative=True, blocking=True)
-            # TODO remove debug code
-            # print(i, self.robot.get_base_pose())
             self.update()
+            input("Press enter to continue")
+
             if self.robot.last_motion_failed():
                 # We have a problem!
                 self.robot.navigate_to([-0.1, 0, 0], relative=True, blocking=True)
@@ -779,15 +784,16 @@ class RobotAgent:
             print(i, name, instance.score)
 
     def start(self, goal: Optional[str] = None, visualize_map_at_start: bool = False):
-        # Tuck the arm away
-        print("Sending arm to  home...")
-        self.robot.switch_to_manipulation_mode()
 
         # Call the robot's own startup hooks
         started = self.robot.start()
         if started:
             # update here
             self.update()
+
+        # Tuck the arm away
+        print("Sending arm to  home...")
+        self.robot.switch_to_manipulation_mode()
 
         # Add some debugging stuff - show what 3d point clouds look like
         if visualize_map_at_start:

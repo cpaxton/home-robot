@@ -1,5 +1,6 @@
 # (c) 2024 chris paxton under MIT license
 
+import threading
 import time
 import timeit
 from threading import Lock
@@ -18,8 +19,14 @@ from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import show_point_cloud
 
+# import faulthandler
+# faulthandler.enable()
+
 
 class HomeRobotZmqClient(RobotClient):
+
+    _iter = 0  # Tracks number of actions set, never reset this
+
     def __init__(
         self,
         robot_ip: str = "192.168.1.15",
@@ -86,12 +93,21 @@ class HomeRobotZmqClient(RobotClient):
         else:
             self.address = "tcp://" + "127.0.0.1" + ":" + str(self.recv_port)
 
-        print(f"Connecting to {self.address} to receieve observations...")
+        print(f"Connecting to {self.address} to receive observations...")
         self.recv_socket.connect(self.address)
         print("...connected.")
 
         self._obs_lock = Lock()
         self._act_lock = Lock()
+
+    def get_base_pose(self) -> np.ndarray:
+        """Get the current pose of the base"""
+        with self._obs_lock:
+            if self._obs is None:
+                return None
+            gps = self._obs["gps"]
+            compass = self._obs["compass"]
+        return np.concatenate([gps, compass], axis=-1)
 
     def navigate_to(
         self, xyt: ContinuousNavigationAction, relative=False, blocking=False
@@ -104,28 +120,73 @@ class HomeRobotZmqClient(RobotClient):
             self._next_action["xyt"] = xyt
             self._next_action["nav_relative"] = relative
             self._next_action["nav_blocking"] = blocking
+        self.send_action()
+        with self._obs_lock:
+            # Clear observation
+            self._obs = None
 
     def reset(self):
         """Reset everything in the robot's internal state"""
         self._control_mode = None
         self._next_action = dict()
         self._obs = None
+        self._thread = None
+        self._finish = False
+        self._last_step = -1
 
     def switch_to_navigation_mode(self):
         with self._act_lock:
             self._next_action["control_mode"] = "navigation"
+        self.send_action()
+        self._wait_for_mode("navigation")
 
     def switch_to_manipulation_mode(self):
         with self._act_lock:
             self._next_action["control_mode"] = "manipulation"
+        self.send_action()
+        self._wait_for_mode("manipulation")
 
     def move_to_nav_posture(self):
         with self._act_lock:
             self._next_action["posture"] = "navigation"
+        self.send_action()
+        self._wait_for_mode("navigation")
 
     def move_to_manip_posture(self):
         with self._act_lock:
             self._next_action["posture"] = "manipulation"
+        self.send_action()
+        self._wait_for_mode("manipulation")
+
+    def _wait_for_mode(self, mode, verbose: bool = False):
+        t0 = timeit.default_timer()
+        while True:
+            with self._obs_lock:
+                if verbose:
+                    print(f"Waiting for mode {mode} current mode {self._control_mode}")
+                if self._control_mode == mode:
+                    break
+            time.sleep(0.1)
+            t1 = timeit.default_timer()
+            if t1 - t0 > 5.0:
+                raise RuntimeError(f"Timeout waiting for mode {mode}")
+
+    def _wait_for_action(self, block_id: int, verbose: bool = False):
+        t0 = timeit.default_timer()
+        while True:
+            with self._obs_lock:
+                if verbose:
+                    print(
+                        f"Waiting for step {block_id} last acknowledged step {self._last_step}"
+                    )
+                if self._last_step >= block_id:
+                    break
+            time.sleep(0.1)
+            t1 = timeit.default_timer()
+            if t1 - t0 > 15.0:
+                raise RuntimeError(
+                    f"Timeout waiting for block with step id = {block_id}"
+                )
 
     def in_manipulation_mode(self) -> bool:
         """is the robot ready to grasp"""
@@ -139,12 +200,6 @@ class HomeRobotZmqClient(RobotClient):
         """Override this if you want to check to see if a particular motion failed, e.g. it was not reachable and we don't know why."""
         return False
 
-    def start(self) -> bool:
-        """Override this if there's custom startup logic that you want to add before anything else.
-
-        Returns True if we actually should do anything (like update) after this."""
-        return False
-
     def get_robot_model(self) -> RobotModel:
         """return a model of the robot for planning"""
         return self._robot_model
@@ -154,6 +209,7 @@ class HomeRobotZmqClient(RobotClient):
         with self._obs_lock:
             self._obs = obs
             self._control_mode = obs["control_mode"]
+            self._last_step = obs["step"]
 
     def get_observation(self):
         """Get the current observation"""
@@ -172,6 +228,26 @@ class HomeRobotZmqClient(RobotClient):
             observation.camera_K = self._obs.get("camera_K", None)
             observation.camera_pose = self._obs.get("camera_pose", None)
         return observation
+
+    def send_action(self):
+        print("sending", self._next_action)
+        blocking = False
+        block_id = None
+        with self._act_lock:
+            blocking = self._next_action.get("nav_blocking", False)
+            block_id = self._iter
+            # Send it
+            self._next_action["step"] = block_id
+            self._iter += 1
+            self.send_socket.send_pyobj(self._next_action)
+            # Empty it out for the next one
+            self._next_action = dict()
+            time.sleep(0.2)
+
+        if blocking:
+            # Wait for the command to
+            self._wait_for_action(block_id)
+        print("done sending")
 
     def execute_trajectory(
         self,
@@ -194,10 +270,12 @@ class HomeRobotZmqClient(RobotClient):
         camera = None
         shown_point_cloud = visualize
 
-        while True:
+        while not self._finish:
+
             output = self.recv_socket.recv_pyobj()
             if output is None:
                 continue
+
             output["rgb"] = cv2.imdecode(output["rgb"], cv2.IMREAD_COLOR)
             compressed_depth = output["depth"]
             depth = cv2.imdecode(compressed_depth, cv2.IMREAD_UNCHANGED)
@@ -215,12 +293,8 @@ class HomeRobotZmqClient(RobotClient):
                 shown_point_cloud = True
 
             self._update_obs(output)
-            with self._act_lock:
-                if len(self._next_action) > 0:
-                    # Send it
-                    self.send_socket.send_pyobj(self._next_action)
-                    # Empty it out for the next one
-                    self._next_action = dict()
+            # with self._act_lock:
+            #    if len(self._next_action) > 0:
 
             t1 = timeit.default_timer()
             dt = t1 - t0
@@ -232,6 +306,21 @@ class HomeRobotZmqClient(RobotClient):
                     f"time taken = {dt} avg = {sum_time/steps} keys={[k for k in output.keys()]}"
                 )
             t0 = timeit.default_timer()
+
+    def start(self) -> bool:
+        """Start running blocking thread in a separate thread"""
+        self._thread = threading.Thread(target=self.blocking_spin)
+        self._finish = False
+        self._thread.start()
+        return True
+
+    def __del__(self):
+        self._finish = True
+        self.recv_socket.close()
+        self.send_socket.close()
+        self.context.term()
+        if self._thread is not None:
+            self._thread.join()
 
 
 @click.command()
