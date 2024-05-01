@@ -188,7 +188,11 @@ class HomeRobotZmqClient(RobotClient):
                 self.move_to_nav_posture()
                 self.navigate_to([0, 0, 0], relative=False, blocking=True)
 
-
+@click.command()
+@click.option("--local", is_flag=True, help="Run code locally on the robot.")
+@click.option("--recv_port", default=4401, help="Port to receive observations on")
+@click.option("--send_port", default=4402, help="Port to send actions to on the robot")
+@click.option("--robot_ip", default="192.168.1.15")
 def main(local: bool = True, robot_ip: str = "192.168.1.15"):
     client = HomeRobotZmqClient(
         robot_ip=robot_ip,

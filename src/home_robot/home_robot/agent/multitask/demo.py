@@ -90,7 +90,8 @@ def main(
     **kwargs,
 ):
     robot = HomeRobotZmqClient()
-    pass
+    # Call demo_main with all the arguments
+    demo_main(robot, rate=rate, visualize=visualize, manual_wait=manual_wait, output_filename=output_filename, navigate_home=navigate_home, device_id=device_id, verbose=verbose, show_intermediate_maps=show_intermediate_maps, show_final_map=show_final_map, show_paths=show_paths, random_goals=random_goals, test_grasping=test_grasping, force_explore=force_explore, no_manip=no_manip, explore_iter=explore_iter, use_vlm=use_vlm, vlm_server_addr=vlm_server_addr, vlm_server_port=vlm_server_port, write_instance_images=write_instance_images, parameter_file=parameter_file, **kwargs)
 
 
 def demo_main(

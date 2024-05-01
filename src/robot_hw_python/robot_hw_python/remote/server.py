@@ -145,7 +145,11 @@ class ZmqServer:
             time.sleep(0.1)
             t0 = timeit.default_timer()
 
-
+@click.command()
+@click.option("--send_port", default=4401, help="Port to send observations to")
+@click.option("--recv_port", default=4402, help="Port to receive actions from")
+@click.option("--desktop_ip", default="192.168.1.10", help="IP address of desktop")
+@click.option("--local", is_flag=True, help="Run code locally on the robot.")
 def main(
     send_port: int = 4401,
     recv_port: int = 4402,
