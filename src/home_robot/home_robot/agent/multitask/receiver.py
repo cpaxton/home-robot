@@ -24,9 +24,6 @@ from home_robot.utils.point_cloud import show_point_cloud
 
 
 class HomeRobotZmqClient(RobotClient):
-
-    _iter = 0  # Tracks number of actions set, never reset this
-
     def __init__(
         self,
         robot_ip: str = "192.168.1.15",
@@ -133,6 +130,7 @@ class HomeRobotZmqClient(RobotClient):
         self._thread = None
         self._finish = False
         self._last_step = -1
+        self._iter = 0  # Tracks number of actions set, never reset this
 
     def switch_to_navigation_mode(self):
         with self._act_lock:
@@ -210,6 +208,8 @@ class HomeRobotZmqClient(RobotClient):
             self._obs = obs
             self._control_mode = obs["control_mode"]
             self._last_step = obs["step"]
+            if self._iter <= 0:
+                self._iter = self._last_step
 
     def get_observation(self):
         """Get the current observation"""
@@ -244,6 +244,8 @@ class HomeRobotZmqClient(RobotClient):
             # Empty it out for the next one
             self._next_action = dict()
 
+        # Make sure we had time to read
+        time.sleep(0.2)
         if blocking:
             # Wait for the command to
             self._wait_for_action(block_id)

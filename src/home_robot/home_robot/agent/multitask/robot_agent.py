@@ -225,10 +225,8 @@ class RobotAgent:
         step_size = 2 * np.pi / steps
         i = 0
         while i < steps:
-            print("rotation step i =", i + 1, "of", steps)
             self.robot.navigate_to([0, 0, step_size], relative=True, blocking=True)
             self.update()
-            input("Press enter to continue")
 
             if self.robot.last_motion_failed():
                 # We have a problem!
