@@ -186,7 +186,7 @@ class HomeRobotZmqClient(RobotClient):
                 self.move_to_manip_posture()
             elif self._control_mode == "manipulation":
                 self.move_to_nav_posture()
-                self.navigate_to([0.5, 0, 0], relative=False)
+                self.navigate_to([0, 0, 0], relative=False, blocking=True)
 
 
 def main(local: bool = True, robot_ip: str = "192.168.1.15"):
