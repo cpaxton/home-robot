@@ -1,5 +1,6 @@
 # (c) 2024 chris paxton under MIT license
 
+import threading
 import time
 import timeit
 from threading import Lock
@@ -86,12 +87,21 @@ class HomeRobotZmqClient(RobotClient):
         else:
             self.address = "tcp://" + "127.0.0.1" + ":" + str(self.recv_port)
 
-        print(f"Connecting to {self.address} to receieve observations...")
+        print(f"Connecting to {self.address} to receive observations...")
         self.recv_socket.connect(self.address)
         print("...connected.")
 
         self._obs_lock = Lock()
         self._act_lock = Lock()
+
+    def get_base_pose(self) -> np.ndarray:
+        """Get the current pose of the base"""
+        with self._obs_lock:
+            if self._obs is None:
+                return None
+            gps = self._obs["gps"]
+            compass = self._obs["compass"]
+        return np.concatenate([gps, compass], axis=-1)
 
     def navigate_to(
         self, xyt: ContinuousNavigationAction, relative=False, blocking=False
@@ -110,6 +120,8 @@ class HomeRobotZmqClient(RobotClient):
         self._control_mode = None
         self._next_action = dict()
         self._obs = None
+        self._thread = None
+        self._finish = False
 
     def switch_to_navigation_mode(self):
         with self._act_lock:
@@ -137,12 +149,6 @@ class HomeRobotZmqClient(RobotClient):
 
     def last_motion_failed(self) -> bool:
         """Override this if you want to check to see if a particular motion failed, e.g. it was not reachable and we don't know why."""
-        return False
-
-    def start(self) -> bool:
-        """Override this if there's custom startup logic that you want to add before anything else.
-
-        Returns True if we actually should do anything (like update) after this."""
         return False
 
     def get_robot_model(self) -> RobotModel:
@@ -194,7 +200,7 @@ class HomeRobotZmqClient(RobotClient):
         camera = None
         shown_point_cloud = visualize
 
-        while True:
+        while not self._finish:
             output = self.recv_socket.recv_pyobj()
             if output is None:
                 continue
@@ -238,6 +244,21 @@ class HomeRobotZmqClient(RobotClient):
             elif self._control_mode == "manipulation":
                 self.move_to_nav_posture()
                 self.navigate_to([0, 0, 0], relative=False, blocking=True)
+
+    def start(self) -> bool:
+        """Start running blocking thread in a separate thread"""
+        self._thread = threading.Thread(target=self.blocking_spin)
+        self._finish = False
+        self._thread.start()
+        return False
+
+    def __del__(self):
+        self._finish = True
+        self.recv_socket.close()
+        self.send_socket.close()
+        self.context.term()
+        if self._thread is not None:
+            self._thread.join()
 
 
 @click.command()
