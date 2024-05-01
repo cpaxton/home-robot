@@ -7,6 +7,7 @@ import datetime
 import os
 import pickle
 import time
+import timeit
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -555,7 +556,18 @@ class RobotAgent:
 
     def update(self, visualize_map=False):
         """Step the data collector. Get a single observation of the world. Remove bad points, such as those from too far or too near the camera. Update the 3d world representation."""
-        obs = self.robot.get_observation()
+        t0 = timeit.default_timer()
+        while True:
+            obs = self.robot.get_observation()
+            if obs is not None:
+                break
+            else:
+                time.sleep(0.1)
+            t1 = timeit.default_timer()
+            dt = t1 - t0
+            if dt > 5:
+                logger.error("Failed to get observation")
+                return False
         self.obs_history.append(obs)
         self.obs_count += 1
         # Semantic prediction
@@ -792,6 +804,7 @@ class RobotAgent:
         # Move the robot into navigation mode
         self.robot.switch_to_navigation_mode()
         print("- Update map after switching to navigation posture")
+
         # self.update(visualize_map=visualize_map_at_start)  # Append latest observations
         self.update(visualize_map=False)  # Append latest observations
 

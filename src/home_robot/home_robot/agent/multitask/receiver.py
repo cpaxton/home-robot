@@ -3,7 +3,7 @@
 import time
 import timeit
 from threading import Lock
-from typing import List
+from typing import List, Optional
 
 import click
 import cv2
@@ -11,9 +11,10 @@ import numpy as np
 import rclpy
 import zmq
 
-from home_robot.core.interfaces import ContinuousNavigationAction
+from home_robot.core.interfaces import ContinuousNavigationAction, Observations
 from home_robot.core.robot import RobotClient
 from home_robot.motion.robot import RobotModel
+from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import show_point_cloud
 
@@ -25,10 +26,41 @@ class HomeRobotZmqClient(RobotClient):
         recv_port: int = 4401,
         send_port: int = 4402,
         use_remote_computer: bool = True,
+        urdf_path: str = "",
+        ik_type: str = "pinocchio",
+        visualize_ik: bool = False,
+        grasp_frame: Optional[str] = None,
+        ee_link_name: Optional[str] = None,
+        manip_mode_controlled_joints: Optional[List[str]] = None,
     ):
+        """
+        Create a client to communicate with the robot over ZMQ.
+
+        Args:
+            robot_ip: The IP address of the robot
+            recv_port: The port to receive observations on
+            send_port: The port to send actions to on the robot
+            use_remote_computer: Whether to use a remote computer to connect to the robot
+            urdf_path: The path to the URDF file for the robot
+            ik_type: The type of IK solver to use
+            visualize_ik: Whether to visualize the IK solution
+            grasp_frame: The frame to use for grasping
+            ee_link_name: The name of the end effector link
+            manip_mode_controlled_joints: The joints to control in manipulation mode
+        """
         self.recv_port = recv_port
         self.send_port = send_port
         self.reset()
+
+        # Robot model
+        self._robot_model = HelloStretchKinematics(
+            urdf_path=urdf_path,
+            ik_type=ik_type,
+            visualize=visualize_ik,
+            grasp_frame=grasp_frame,
+            ee_link_name=ee_link_name,
+            manip_mode_controlled_joints=manip_mode_controlled_joints,
+        )
 
         # Create ZMQ sockets
         self.context = zmq.Context()
@@ -77,6 +109,7 @@ class HomeRobotZmqClient(RobotClient):
         """Reset everything in the robot's internal state"""
         self._control_mode = None
         self._next_action = dict()
+        self._obs = None
 
     def switch_to_navigation_mode(self):
         with self._act_lock:
@@ -114,13 +147,31 @@ class HomeRobotZmqClient(RobotClient):
 
     def get_robot_model(self) -> RobotModel:
         """return a model of the robot for planning"""
-        raise NotImplementedError()
+        return self._robot_model
 
     def _update_obs(self, obs):
         """Update observation internally with lock"""
         with self._obs_lock:
             self._obs = obs
             self._control_mode = obs["control_mode"]
+
+    def get_observation(self):
+        """Get the current observation"""
+        with self._obs_lock:
+            if self._obs is None:
+                return None
+            observation = Observations(
+                gps=self._obs["gps"],
+                compass=self._obs["compass"],
+                rgb=self._obs["rgb"],
+                depth=self._obs["depth"],
+                xyz=self._obs["xyz"],
+            )
+            observation.joint = self._obs.get("joint", None)
+            observation.ee_pose = self._obs.get("ee_pose", None)
+            observation.camera_K = self._obs.get("camera_K", None)
+            observation.camera_pose = self._obs.get("camera_pose", None)
+        return observation
 
     def execute_trajectory(
         self,
@@ -188,15 +239,18 @@ class HomeRobotZmqClient(RobotClient):
                 self.move_to_nav_posture()
                 self.navigate_to([0, 0, 0], relative=False, blocking=True)
 
+
 @click.command()
 @click.option("--local", is_flag=True, help="Run code locally on the robot.")
 @click.option("--recv_port", default=4401, help="Port to receive observations on")
 @click.option("--send_port", default=4402, help="Port to send actions to on the robot")
 @click.option("--robot_ip", default="192.168.1.15")
-def main(local: bool = True,
+def main(
+    local: bool = True,
     recv_port: int = 4401,
     send_port: int = 4402,
-         robot_ip: str = "192.168.1.15"):
+    robot_ip: str = "192.168.1.15",
+):
     client = HomeRobotZmqClient(
         robot_ip=robot_ip,
         recv_port=recv_port,
