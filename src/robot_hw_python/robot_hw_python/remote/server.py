@@ -37,6 +37,7 @@ class ZmqServer:
         self.recv_socket.setsockopt(zmq.SNDHWM, 1)
         self.recv_socket.setsockopt(zmq.RCVHWM, 1)
         self.recv_socket.setsockopt(zmq.CONFLATE, 1)
+        self._last_step = -1
 
         # Make connections
         if use_remote_computer:
@@ -93,6 +94,7 @@ class ZmqServer:
                 "rgb_height": height,
                 "control_mode": control_mode,
                 "last_motion_failed": self.client.last_motion_failed(),
+                "step": self._last_step,
             }
 
             self.send_socket.send_pyobj(data)
@@ -103,6 +105,7 @@ class ZmqServer:
                 action = None
             if action is not None:
                 print(f"Action received: {action}")
+                self._last_step = action.get("step", -1)
                 if "posture" in action:
                     if action["posture"] == "manipulation":
                         self.client.move_to_manip_posture()
@@ -144,6 +147,7 @@ class ZmqServer:
 
             time.sleep(0.1)
             t0 = timeit.default_timer()
+
 
 @click.command()
 @click.option("--send_port", default=4401, help="Port to send observations to")

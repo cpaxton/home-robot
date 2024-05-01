@@ -19,8 +19,14 @@ from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import show_point_cloud
 
+# import faulthandler
+# faulthandler.enable()
+
 
 class HomeRobotZmqClient(RobotClient):
+
+    _iter = 0  # Tracks number of actions set, never reset this
+
     def __init__(
         self,
         robot_ip: str = "192.168.1.15",
@@ -118,7 +124,6 @@ class HomeRobotZmqClient(RobotClient):
         with self._obs_lock:
             # Clear observation
             self._obs = None
-            _ = self.recv_socket.recv_pyobj()
 
     def reset(self):
         """Reset everything in the robot's internal state"""
@@ -127,6 +132,7 @@ class HomeRobotZmqClient(RobotClient):
         self._obs = None
         self._thread = None
         self._finish = False
+        self._last_step = -1
 
     def switch_to_navigation_mode(self):
         with self._act_lock:
@@ -152,17 +158,35 @@ class HomeRobotZmqClient(RobotClient):
         self.send_action()
         self._wait_for_mode("manipulation")
 
-    def _wait_for_mode(self, mode):
+    def _wait_for_mode(self, mode, verbose: bool = False):
         t0 = timeit.default_timer()
         while True:
             with self._obs_lock:
-                print(f"Waiting for mode {mode} current mode {self._control_mode}")
+                if verbose:
+                    print(f"Waiting for mode {mode} current mode {self._control_mode}")
                 if self._control_mode == mode:
                     break
             time.sleep(0.1)
             t1 = timeit.default_timer()
             if t1 - t0 > 5.0:
                 raise RuntimeError(f"Timeout waiting for mode {mode}")
+
+    def _wait_for_action(self, block_id: int, verbose: bool = False):
+        t0 = timeit.default_timer()
+        while True:
+            with self._obs_lock:
+                if verbose:
+                    print(
+                        f"Waiting for step {block_id} last acknowledged step {self._last_step}"
+                    )
+                if self._last_step >= block_id:
+                    break
+            time.sleep(0.1)
+            t1 = timeit.default_timer()
+            if t1 - t0 > 15.0:
+                raise RuntimeError(
+                    f"Timeout waiting for block with step id = {block_id}"
+                )
 
     def in_manipulation_mode(self) -> bool:
         """is the robot ready to grasp"""
@@ -185,6 +209,7 @@ class HomeRobotZmqClient(RobotClient):
         with self._obs_lock:
             self._obs = obs
             self._control_mode = obs["control_mode"]
+            self._last_step = obs["step"]
 
     def get_observation(self):
         """Get the current observation"""
@@ -206,12 +231,23 @@ class HomeRobotZmqClient(RobotClient):
 
     def send_action(self):
         print("sending", self._next_action)
+        blocking = False
+        block_id = None
         with self._act_lock:
+            blocking = self._next_action.get("nav_blocking", False)
+            block_id = self._iter
             # Send it
+            self._next_action["step"] = block_id
+            self._iter += 1
             self.send_socket.send_pyobj(self._next_action)
             # Empty it out for the next one
             self._next_action = dict()
             time.sleep(0.2)
+
+        if blocking:
+            # Wait for the command to
+            self._wait_for_action(block_id)
+        print("done sending")
 
     def execute_trajectory(
         self,
