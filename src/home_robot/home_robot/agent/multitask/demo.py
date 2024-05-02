@@ -209,7 +209,6 @@ def demo_main(
 
     print("- Reset robot to [0, 0, 0]")
     robot.navigate_to([0, 0, 0])
-    input("Press Enter to continue...")
 
     if object_to_find is not None:
         print(f"\nSearch for {object_to_find} and {location_to_place}")
