@@ -174,16 +174,50 @@ class HomeRobotZmqClient(RobotClient):
             if t1 - t0 > 5.0:
                 raise RuntimeError(f"Timeout waiting for mode {mode}")
 
-    def _wait_for_action(self, block_id: int, verbose: bool = False):
+    def _wait_for_action(
+        self,
+        block_id: int,
+        verbose: bool = True,
+        moving_threshold: float = 1e-4,
+        angle_threshold: float = 1e-4,
+        min_steps_not_moving: int = 3,
+    ):
         t0 = timeit.default_timer()
+        last_pos = None
+        last_ang = None
+        not_moving_count = 0
         while True:
             with self._obs_lock:
-                if verbose:
-                    print(
-                        f"Waiting for step {block_id} last acknowledged step {self._last_step}"
+                if self._obs is not None:
+                    pos = self._obs["gps"]
+                    ang = self._obs["compass"]
+                    moved_dist = (
+                        np.linalg.norm(pos - last_pos) if last_pos is not None else 0
                     )
-                if self._last_step >= block_id and self._obs["at_goal"]:
-                    break
+                    angle_dist = (
+                        angle_difference(ang, last_ang) if last_ang is not None else 0
+                    )
+                    not_moving = (
+                        last_pos is not None
+                        and moved_dist < moving_threshold
+                        and angle_dist < angle_threshold
+                    )
+                    if not_moving:
+                        not_moving_count += 1
+                    else:
+                        not_moving_count = 0
+                    last_pos = pos
+                    if verbose:
+                        print(
+                            f"Waiting for step={block_id} prev={self._last_step} at {pos} moved {moved_dist:0.04f} angle {angle_dist:0.04f} not_moving {not_moving} at_goal {self._obs['at_goal']}"
+                        )
+                    if (
+                        self._last_step >= block_id
+                        and self._obs["at_goal"]
+                        and not_moving_count > min_steps_not_moving
+                    ):
+                        break
+                    self._obs = None
             time.sleep(0.1)
             t1 = timeit.default_timer()
             if t1 - t0 > 15.0:
@@ -327,6 +361,7 @@ class HomeRobotZmqClient(RobotClient):
         if blocking:
             # Wait for the command to
             self._wait_for_action(block_id)
+            time.sleep(5.0)
 
     def blocking_spin(self, verbose: bool = False, visualize: bool = False):
         """this is just for testing"""
