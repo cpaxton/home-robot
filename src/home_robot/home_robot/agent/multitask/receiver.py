@@ -124,9 +124,9 @@ class HomeRobotZmqClient(RobotClient):
             self._next_action["nav_relative"] = relative
             self._next_action["nav_blocking"] = blocking
         self.send_action()
-        with self._obs_lock:
-            # Clear observation
-            self._obs = None
+
+        # Set a sleep based on expected hz at which we receive updates from the robot
+        time.sleep(0.2)
 
     def reset(self):
         """Reset everything in the robot's internal state"""
