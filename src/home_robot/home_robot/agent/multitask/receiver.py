@@ -9,7 +9,6 @@ from typing import List, Optional
 import click
 import cv2
 import numpy as np
-import rclpy
 import zmq
 from loguru import logger
 
