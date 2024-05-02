@@ -169,7 +169,8 @@ class ZmqServer:
                     self.client.navigate_to(
                         action["xyt"],
                         relative=action["nav_relative"],
-                        blocking=action["nav_blocking"],
+                        # TODO: should we actually block here? Probably not, right?
+                        # blocking=action["nav_blocking"],
                     )
 
             # Finish with some speed info
