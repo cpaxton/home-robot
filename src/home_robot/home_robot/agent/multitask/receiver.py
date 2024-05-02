@@ -102,8 +102,12 @@ class HomeRobotZmqClient(RobotClient):
     def get_base_pose(self) -> np.ndarray:
         """Get the current pose of the base"""
         with self._obs_lock:
-            if self._obs is None:
-                return None
+            t0 = timeit.default_timer()
+            while self._obs is None:
+                time.sleep(0.1)
+                if timeit.default_timer() - t0 > 5.0:
+                    logger.error("Timeout waiting for observation")
+                    return None
             gps = self._obs["gps"]
             compass = self._obs["compass"]
         return np.concatenate([gps, compass], axis=-1)
@@ -246,8 +250,9 @@ class HomeRobotZmqClient(RobotClient):
             assert (
                 len(pt) == 3 or len(pt) == 2
             ), "base trajectory needs to be 2-3 dimensions: x, y, and (optionally) theta"
-            just_xy = len(pt) == 2
-            self.navigate_to(pt, relative, position_only=just_xy, blocking=False)
+            # just_xy = len(pt) == 2
+            # self.navigate_to(pt, relative, position_only=just_xy, blocking=False)
+            self.navigate_to(pt, relative, blocking=False)
             self.wait_for_waypoint(
                 pt,
                 pos_err_threshold=pos_err_threshold,
@@ -278,7 +283,7 @@ class HomeRobotZmqClient(RobotClient):
 
         Returns:
             success: did we reach waypoint in time"""
-        _rate = self._ros_client.create_rate(rate)
+        _delay = 1.0 / rate
         xy = xyt[:2]
         if verbose:
             logger.info(f"Waiting for {xyt}, threshold = {pos_err_threshold}")
@@ -286,6 +291,7 @@ class HomeRobotZmqClient(RobotClient):
         t0 = timeit.default_timer()
         while rclpy.ok():
             # Loop until we get there (or time out)
+            t1 = timeit.default_timer()
             curr = self.get_base_pose()
             pos_err = np.linalg.norm(xy - curr[:2])
             rot_err = np.abs(angle_difference(curr[-1], xyt[2]))
@@ -294,11 +300,12 @@ class HomeRobotZmqClient(RobotClient):
             if pos_err < pos_err_threshold and rot_err < rot_err_threshold:
                 # We reached the goal position
                 return True
-            t1 = timeit.default_timer()
-            if t1 - t0 > timeout:
+            t2 = timeit.default_timer()
+            dt = t2 - t1
+            if t2 - t0 > timeout:
                 logger.warning("Could not reach goal in time: " + str(xyt))
                 return False
-            _rate.sleep()
+            time.sleep(max(0, _delay - (dt)))
         return False
 
     def send_action(self):
