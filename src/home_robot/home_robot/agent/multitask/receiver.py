@@ -382,6 +382,9 @@ class HomeRobotZmqClient(RobotClient):
         return True
 
     def __del__(self):
+        self.close()
+
+    def stop(self):
         print("Deleting receiver!")
         self._finish = True
         self.recv_socket.close()
