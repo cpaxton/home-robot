@@ -180,7 +180,7 @@ class HomeRobotZmqClient(RobotClient):
         verbose: bool = True,
         moving_threshold: float = 1e-4,
         angle_threshold: float = 1e-4,
-        min_steps_not_moving: int = 2,
+        min_steps_not_moving: int = 1,
     ):
         t0 = timeit.default_timer()
         last_pos = None
@@ -209,7 +209,7 @@ class HomeRobotZmqClient(RobotClient):
                     last_pos = pos
                     if verbose:
                         print(
-                            f"Waiting for step={block_id} prev={self._last_step} at {pos} moved {moved_dist:0.04f} angle {angle_dist:0.04f} not_moving {not_moving} at_goal {self._obs['at_goal']}"
+                            f"Waiting for step={block_id} prev={self._last_step} at {pos} moved {moved_dist:0.04f} angle {angle_dist:0.04f} not_moving {not_moving_count} at_goal {self._obs['at_goal']}"
                         )
                     if (
                         self._last_step >= block_id
