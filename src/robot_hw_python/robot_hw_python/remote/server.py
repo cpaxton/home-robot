@@ -1,5 +1,6 @@
 # (c) 2024 chris paxton for Hello Robot, under MIT license
 
+import threading
 import time
 import timeit
 from typing import Optional
@@ -53,13 +54,17 @@ class ZmqServer:
         self.recv_socket.connect(self.recv_address)
         print("Done!")
 
+        # for the threads
+        self.control_mode = "none"
+        self._done = False
+
     def spin_send(self):
 
         # Create a stretch client to get information
         sum_time: float = 0
         steps = 0
         t0 = timeit.default_timer()
-        while rclpy.ok():
+        while rclpy.ok() and not self._done:
             # get information
             obs = self.client.get_observation()
             rgb, depth = obs.rgb, obs.depth
@@ -99,12 +104,29 @@ class ZmqServer:
             }
 
             self.send_socket.send_pyobj(data)
+
+            # Finish with some speed info
+            t1 = timeit.default_timer()
+            dt = t1 - t0
+            sum_time += dt
+            steps += 1
+            t0 = t1
+            print(f"[SEND] time taken = {dt} avg = {sum_time/steps}")
+
+            time.sleep(0.1)
+            t0 = timeit.default_timer()
+
+    def spin_recv(self):
+        sum_time: float = 0
+        steps = 0
+        t0 = timeit.default_timer()
+        while rclpy.ok() and not self._done:
             try:
                 action = self.recv_socket.recv_pyobj(flags=zmq.NOBLOCK)
             except zmq.Again:
                 print(" - no action received")
                 action = None
-            print(f" - {control_mode=}")
+            print(f" - {self.control_mode=}")
             print(f" - prev action step: {self._last_step}")
             if action is not None:
                 print(f" - Action received: {action}")
@@ -126,8 +148,10 @@ class ZmqServer:
                 if "control_mode" in action:
                     if action["control_mode"] == "manipulation":
                         self.client.switch_to_manipulation_mode()
+                        self.control_mode = "manipulation"
                     elif action["control_mode"] == "navigation":
                         self.client.switch_to_navigation_mode()
+                        self.control_mode = "navigation"
                     else:
                         print(
                             " - control mode",
@@ -153,10 +177,26 @@ class ZmqServer:
             sum_time += dt
             steps += 1
             t0 = t1
-            print(f"time taken = {dt} avg = {sum_time/steps}")
+            print(f"[RECV] time taken = {dt} avg = {sum_time/steps}")
 
             time.sleep(0.1)
             t0 = timeit.default_timer()
+
+    def start(self):
+        """Starts both threads spinning separately for efficiency."""
+        self._send_thread = threading.Thread(target=self.spin_send)
+        self._recv_thread = threading.Thread(target=self.spin_recv)
+        self._done = False
+        self._send_thread.start()
+        self._recv_thread.start()
+
+    def __del__(self):
+        self._done = True
+        self.recv_socket.close()
+        self.send_socket.close()
+        self.context.term()
+        self._send_thread.join()
+        self._recv_thread.join()
 
 
 @click.command()
@@ -177,7 +217,7 @@ def main(
         desktop_ip=desktop_ip,
         use_remote_computer=(not local),
     )
-    server.spin_send()
+    server.start()
 
 
 if __name__ == "__main__":
