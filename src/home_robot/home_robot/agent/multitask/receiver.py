@@ -180,7 +180,7 @@ class HomeRobotZmqClient(RobotClient):
         verbose: bool = True,
         moving_threshold: float = 1e-4,
         angle_threshold: float = 1e-4,
-        min_steps_not_moving: int = 3,
+        min_steps_not_moving: int = 2,
     ):
         t0 = timeit.default_timer()
         last_pos = None
