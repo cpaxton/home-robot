@@ -11,6 +11,7 @@ import cv2
 import numpy as np
 import rclpy
 import zmq
+from loguru import logger
 
 from home_robot.core.interfaces import ContinuousNavigationAction, Observations
 from home_robot.core.robot import RobotClient
@@ -18,6 +19,7 @@ from home_robot.motion.robot import RobotModel
 from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import show_point_cloud
+from home_robot.utils.transform import angle_difference
 
 # import faulthandler
 # faulthandler.enable()
@@ -229,6 +231,76 @@ class HomeRobotZmqClient(RobotClient):
             observation.camera_pose = self._obs.get("camera_pose", None)
         return observation
 
+    def execute_trajectory(
+        self,
+        trajectory: List[np.ndarray],
+        pos_err_threshold: float = 0.2,
+        rot_err_threshold: float = 0.75,
+        spin_rate: int = 10,
+        verbose: bool = False,
+        per_waypoint_timeout: float = 10.0,
+        relative: bool = False,
+    ):
+        """Execute a multi-step trajectory; this is always blocking since it waits to reach each one in turn."""
+        for i, pt in enumerate(trajectory):
+            assert (
+                len(pt) == 3 or len(pt) == 2
+            ), "base trajectory needs to be 2-3 dimensions: x, y, and (optionally) theta"
+            just_xy = len(pt) == 2
+            self.navigate_to(pt, relative, position_only=just_xy, blocking=False)
+            self.wait_for_waypoint(
+                pt,
+                pos_err_threshold=pos_err_threshold,
+                rot_err_threshold=rot_err_threshold,
+                rate=spin_rate,
+                verbose=verbose,
+                timeout=per_waypoint_timeout,
+            )
+        self.navigate_to(pt, blocking=True)
+
+    def wait_for_waypoint(
+        self,
+        xyt: np.ndarray,
+        rate: int = 10,
+        pos_err_threshold: float = 0.2,
+        rot_err_threshold: float = 0.75,
+        verbose: bool = True,
+        timeout: float = 10.0,
+    ) -> bool:
+        """Wait until the robot has reached a configuration... but only roughly. Used for trajectory execution.
+
+        Parameters:
+            xyt: se(2) base pose in world coordinates to go to
+            rate: rate at which we should check to see if done
+            pos_err_threshold: how far robot can be for this waypoint
+            verbose: prints extra info out
+            timeout: aborts at this point
+
+        Returns:
+            success: did we reach waypoint in time"""
+        _rate = self._ros_client.create_rate(rate)
+        xy = xyt[:2]
+        if verbose:
+            logger.info(f"Waiting for {xyt}, threshold = {pos_err_threshold}")
+        # Save start time for exiting trajectory loop
+        t0 = timeit.default_timer()
+        while rclpy.ok():
+            # Loop until we get there (or time out)
+            curr = self.get_base_pose()
+            pos_err = np.linalg.norm(xy - curr[:2])
+            rot_err = np.abs(angle_difference(curr[-1], xyt[2]))
+            if verbose:
+                logger.info(f"- {curr=} target {xyt=} {pos_err=} {rot_err=}")
+            if pos_err < pos_err_threshold and rot_err < rot_err_threshold:
+                # We reached the goal position
+                return True
+            t1 = timeit.default_timer()
+            if t1 - t0 > timeout:
+                logger.warning("Could not reach goal in time: " + str(xyt))
+                return False
+            _rate.sleep()
+        return False
+
     def send_action(self):
         """Send the next action to the robot"""
         print("-> sending", self._next_action)
@@ -249,19 +321,6 @@ class HomeRobotZmqClient(RobotClient):
         if blocking:
             # Wait for the command to
             self._wait_for_action(block_id)
-
-    def execute_trajectory(
-        self,
-        trajectory: List[np.ndarray],
-        pos_err_threshold: float = 0.2,
-        rot_err_threshold: float = 0.75,
-        spin_rate: int = 10,
-        verbose: bool = False,
-        per_waypoint_timeout: float = 10.0,
-        relative: bool = False,
-    ):
-        """Open loop trajectory execution"""
-        raise NotImplementedError()
 
     def blocking_spin(self, verbose: bool = False, visualize: bool = False):
         """this is just for testing"""
