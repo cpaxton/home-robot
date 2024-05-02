@@ -173,17 +173,6 @@ def demo_main(
     parameters = get_parameters(parameter_file)
     print(parameters)
 
-    stub = None
-    if use_vlm:
-        if parameters.get("vlm_option", "rpc") == "rpc":
-            try:
-                from home_robot.utils.rpc import get_vlm_rpc_stub
-            except KeyError:
-                print(
-                    "Environment not configured for RPC connection! Needs $ACCEL_CORTEX to be set."
-                )
-            stub = get_vlm_rpc_stub(vlm_server_addr, vlm_server_port)
-
     click.echo("Will connect to a Stretch robot and collect a short trajectory.")
     print("- Connect to Stretch")
 
@@ -202,9 +191,7 @@ def demo_main(
         None  # GraspPlanner(robot, env=None, semantic_sensor=semantic_sensor)
     )
 
-    demo = RobotAgent(
-        robot, parameters, semantic_sensor, rpc_stub=stub, grasp_client=grasp_client
-    )
+    demo = RobotAgent(robot, parameters, semantic_sensor, grasp_client=grasp_client)
     demo.start(goal=object_to_find, visualize_map_at_start=False)
 
     print("- Reset robot to [0, 0, 0]")
