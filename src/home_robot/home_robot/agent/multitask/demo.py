@@ -221,7 +221,7 @@ def demo_main(
     if parameters["in_place_rotation_steps"] > 0:
         demo.rotate_in_place(
             steps=parameters["in_place_rotation_steps"],
-            visualize=False,  # show_intermediate_maps,
+            visualize=True,  # show_intermediate_maps,
         )
 
     # Run the actual procedure
