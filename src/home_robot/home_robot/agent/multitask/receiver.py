@@ -182,7 +182,7 @@ class HomeRobotZmqClient(RobotClient):
                     print(
                         f"Waiting for step {block_id} last acknowledged step {self._last_step}"
                     )
-                if self._last_step >= block_id:
+                if self._last_step >= block_id and self._obs["at_goal"]:
                     break
             time.sleep(0.1)
             t1 = timeit.default_timer()
