@@ -174,15 +174,37 @@ class HomeRobotZmqClient(RobotClient):
             if t1 - t0 > 5.0:
                 raise RuntimeError(f"Timeout waiting for mode {mode}")
 
-    def _wait_for_action(self, block_id: int, verbose: bool = False):
+    def _wait_for_action(
+        self,
+        block_id: int,
+        verbose: bool = True,
+        moving_threshold: float = 1e-4,
+        angle_threshold: float = 1e-4,
+    ):
         t0 = timeit.default_timer()
+        last_pos = None
+        last_ang = None
         while True:
             with self._obs_lock:
+                pos = self._obs["gps"]
+                ang = self._obs["compass"]
+                moved_dist = (
+                    np.linalg.norm(pos - last_pos) if last_pos is not None else 0
+                )
+                angle_dist = (
+                    angle_difference(ang, last_ang) if last_ang is not None else 0
+                )
+                not_moving = (
+                    last_pos is not None
+                    and moved_dist < moving_threshold
+                    and angle_dist < angle_threshold
+                )
+                last_pos = pos
                 if verbose:
                     print(
-                        f"Waiting for step {block_id} last acknowledged step {self._last_step}"
+                        f"Waiting for step={block_id} prev={self._last_step} at {pos} moved {moved_dist} not_moving {not_moving} at_goal {self._obs['at_goal']}"
                     )
-                if self._last_step >= block_id and self._obs["at_goal"]:
+                if self._last_step >= block_id and self._obs["at_goal"] and not_moving:
                     break
             time.sleep(0.1)
             t1 = timeit.default_timer()
@@ -327,6 +349,7 @@ class HomeRobotZmqClient(RobotClient):
         if blocking:
             # Wait for the command to
             self._wait_for_action(block_id)
+            time.sleep(5.0)
 
     def blocking_spin(self, verbose: bool = False, visualize: bool = False):
         """this is just for testing"""

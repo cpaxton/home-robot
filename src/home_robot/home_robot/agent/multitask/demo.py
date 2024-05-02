@@ -205,10 +205,10 @@ def demo_main(
     demo = RobotAgent(
         robot, parameters, semantic_sensor, rpc_stub=stub, grasp_client=grasp_client
     )
-    demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
+    demo.start(goal=object_to_find, visualize_map_at_start=False)
 
     print("- Reset robot to [0, 0, 0]")
-    robot.navigate_to([0, 0, 0])
+    robot.navigate_to([0, 0, 0], blocking=True)
 
     if object_to_find is not None:
         print(f"\nSearch for {object_to_find} and {location_to_place}")
@@ -221,7 +221,7 @@ def demo_main(
     if parameters["in_place_rotation_steps"] > 0:
         demo.rotate_in_place(
             steps=parameters["in_place_rotation_steps"],
-            visualize=False,  # show_intermediate_maps,
+            visualize=show_intermediate_maps,
         )
 
     # Run the actual procedure
