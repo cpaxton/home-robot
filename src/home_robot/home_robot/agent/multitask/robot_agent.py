@@ -528,18 +528,6 @@ class RobotAgent:
         else:
             return self.ask("please type any task you want the robot to do: ")
 
-    def __del__(self):
-        """Clean up at the end if possible"""
-        self.finish()
-
-    def finish(self):
-        """Clean up at the end if possible"""
-        print("Finishing different processes:")
-        if self.parameters["start_ui_server"]:
-            print("- Stopping UI server...")
-            stop_demo_ui_server()
-        print("... Done.")
-
     def publish_limited_obs(self):
         obs = self.robot.get_observation()
         self.obs_count += 1

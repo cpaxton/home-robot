@@ -317,7 +317,6 @@ def demo_main(
             demo.save_instance_images(".")
 
         demo.go_home()
-        demo.finish()
 
 
 if __name__ == "__main__":
