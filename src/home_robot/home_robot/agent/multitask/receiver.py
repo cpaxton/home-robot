@@ -289,7 +289,7 @@ class HomeRobotZmqClient(RobotClient):
             logger.info(f"Waiting for {xyt}, threshold = {pos_err_threshold}")
         # Save start time for exiting trajectory loop
         t0 = timeit.default_timer()
-        while rclpy.ok():
+        while not self._finish:
             # Loop until we get there (or time out)
             t1 = timeit.default_timer()
             curr = self.get_base_pose()
