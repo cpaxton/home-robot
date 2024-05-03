@@ -22,9 +22,10 @@ class ZmqServer:
         recv_port: int = 4402,
         use_remote_computer: bool = True,
         desktop_ip: Optional[str] = "192.168.1.10",
+        verbose: bool = False,
     ):
+        self.verbose = verbose
         self.client = StretchClient()
-
         self.context = zmq.Context()
 
         # Set up the publisher socket using ZMQ
@@ -112,7 +113,8 @@ class ZmqServer:
             sum_time += dt
             steps += 1
             t0 = t1
-            print(f"[SEND] time taken = {dt} avg = {sum_time/steps}")
+            if self.verbose:
+                print(f"[SEND] time taken = {dt} avg = {sum_time/steps}")
 
             time.sleep(0.1)
             t0 = timeit.default_timer()
@@ -125,14 +127,18 @@ class ZmqServer:
             try:
                 action = self.recv_socket.recv_pyobj(flags=zmq.NOBLOCK)
             except zmq.Again:
-                print(" - no action received")
+                if self.verbose:
+                    print(" - no action received")
                 action = None
-            print(f" - {self.control_mode=}")
-            print(f" - prev action step: {self._last_step}")
+            if self.verbose:
+                print(f" - {self.control_mode=}")
+                print(f" - prev action step: {self._last_step}")
             if action is not None:
-                print(f" - Action received: {action}")
+                if self.verbose:
+                    print(f" - Action received: {action}")
                 self._last_step = action.get("step", -1)
-                print(f" - last action step: {self._last_step}")
+                if self.verbose:
+                    print(f" - last action step: {self._last_step}")
                 if "posture" in action:
                     if action["posture"] == "manipulation":
                         self.client.move_to_manip_posture()
@@ -160,12 +166,14 @@ class ZmqServer:
                             "not recognized or supported.",
                         )
                 if "xyt" in action:
-                    print(
-                        "Is robot in navigation mode?", self.client.in_navigation_mode()
-                    )
-                    print(
-                        f"{action['xyt']} {action['nav_relative']} {action['nav_blocking']}"
-                    )
+                    if self.verbose:
+                        print(
+                            "Is robot in navigation mode?",
+                            self.client.in_navigation_mode(),
+                        )
+                        print(
+                            f"{action['xyt']} {action['nav_relative']} {action['nav_blocking']}"
+                        )
                     self.client.navigate_to(
                         action["xyt"],
                         relative=action["nav_relative"],
@@ -179,7 +187,8 @@ class ZmqServer:
             sum_time += dt
             steps += 1
             t0 = t1
-            print(f"[RECV] time taken = {dt} avg = {sum_time/steps}")
+            if self.verbose:
+                print(f"[RECV] time taken = {dt} avg = {sum_time/steps}")
 
             time.sleep(0.1)
             t0 = timeit.default_timer()
