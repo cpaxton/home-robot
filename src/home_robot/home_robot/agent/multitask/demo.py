@@ -181,10 +181,7 @@ def demo_main(
     object_to_find, location_to_place = parameters.get_task_goals()
 
     print("- Create semantic sensor based on detic")
-    # _, semantic_sensor = create_semantic_sensor(
-    #    device_id=device_id, verbose=verbose
-    # )
-    semantic_sensor = None
+    _, semantic_sensor = create_semantic_sensor(device_id=device_id, verbose=verbose)
 
     print("- Start robot agent with data collection")
     grasp_client = (
@@ -263,28 +260,22 @@ def demo_main(
                 smtai2 = demo.move_to_any_instance(matches)
                 if not smtai2:
                     print(f"Going to instance of {location_to_place} failed!")
+                    breakpoint()
                 else:
                     print(f"- Placing on {location_to_place} using FUNMAP")
-                    if not no_manip:
-                        # run_grasping(
-                        #    robot,
-                        #    semantic_sensor,
-                        #    to_grasp=None,
-                        #    to_place=location_to_place,
-                        # )
-                        pass
+                    breakpoint()
     except Exception as e:
         raise (e)
     finally:
         if show_final_map:
             pc_xyz, pc_rgb = demo.voxel_map.show()
             # TODO: Segfaults here for some reason
-            # obstacles, explored = demo.voxel_map.get_2d_map()
-            # plt.subplot(1, 2, 1)
-            # plt.imshow(obstacles)
-            # plt.subplot(1, 2, 2)
-            # plt.imshow(explored)
-            # plt.show()
+            obstacles, explored = demo.voxel_map.get_2d_map()
+            plt.subplot(1, 2, 1)
+            plt.imshow(obstacles)
+            plt.subplot(1, 2, 2)
+            plt.imshow(explored)
+            plt.show()
         else:
             pc_xyz, pc_rgb = demo.voxel_map.get_xyz_rgb()
 
