@@ -675,14 +675,17 @@ class RobotAgent:
         self.robot.move_to_nav_posture()
         start = self.robot.get_base_pose()
         start_is_valid = self.space.is_valid(start, verbose=True)
-        start_is_valid_retries = 5
+        start_is_valid_retries = 1
         while not start_is_valid and start_is_valid_retries > 0:
-            print(f"Start {start} is not valid. back up a bit.")
-            self.robot.navigate_to([-0.1, 0, 0], relative=True)
+            print(f"Start {start} is not valid. Try to back up a bit.")
+            self.robot.navigate_to([-0.1, 0, 0], relative=True, blocking=True)
             # Get the current position in case we are still invalid
             start = self.robot.get_base_pose()
             start_is_valid = self.space.is_valid(start, verbose=True)
             start_is_valid_retries -= 1
+        if not start_is_valid:
+            print("Robot is unable to find a good start position; something is wrong!")
+            breakpoint()
         res = None
 
         # Just terminate here - motion planning issues apparently!
