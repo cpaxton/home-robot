@@ -54,7 +54,11 @@ def generate_launch_description():
 
     offline_mapping_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            [get_package_share_directory("slam_toolbox"), "/launch/offline_launch.py"]
+            # [get_package_share_directory("slam_toolbox"), "/launch/offline_launch.py"]
+            [
+                get_package_share_directory("slam_toolbox"),
+                "/launch/online_async_launch.py",
+            ]
         )
     )
 

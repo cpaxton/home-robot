@@ -101,7 +101,7 @@ class ZmqServer:
                 "last_motion_failed": self.client.last_motion_failed(),
                 "recv_address": self.recv_address,
                 "step": self._last_step,
-                "at_goal": self.at_goal(),
+                "at_goal": self.client.at_goal(),
             }
 
             self.send_socket.send_pyobj(data)
@@ -169,7 +169,8 @@ class ZmqServer:
                     self.client.navigate_to(
                         action["xyt"],
                         relative=action["nav_relative"],
-                        blocking=action["nav_blocking"],
+                        # TODO: should we actually block here? Probably not, right?
+                        # blocking=action["nav_blocking"],
                     )
 
             # Finish with some speed info
