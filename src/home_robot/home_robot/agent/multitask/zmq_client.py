@@ -156,29 +156,33 @@ class HomeRobotZmqClient(RobotClient):
         self._last_step = -1
         self._iter = 0  # Tracks number of actions set, never reset this
 
-    def switch_to_navigation_mode(self):
+    def switch_to_navigation_mode(self, blocking: bool = True):
         with self._act_lock:
             self._next_action["control_mode"] = "navigation"
         self.send_action()
-        self._wait_for_mode("navigation")
+        if blocking:
+            self._wait_for_mode("navigation")
 
-    def switch_to_manipulation_mode(self):
+    def switch_to_manipulation_mode(self, blocking: bool = True):
         with self._act_lock:
             self._next_action["control_mode"] = "manipulation"
         self.send_action()
-        self._wait_for_mode("manipulation")
+        if blocking:
+            self._wait_for_mode("manipulation")
 
-    def move_to_nav_posture(self):
+    def move_to_nav_posture(self, blocking: bool = True):
         with self._act_lock:
             self._next_action["posture"] = "navigation"
         self.send_action()
-        self._wait_for_mode("navigation")
+        if blocking:
+            self._wait_for_mode("navigation")
 
-    def move_to_manip_posture(self):
+    def move_to_manip_posture(self, blocking: bool = True):
         with self._act_lock:
             self._next_action["posture"] = "manipulation"
         self.send_action()
-        self._wait_for_mode("manipulation")
+        if blocking:
+            self._wait_for_mode("manipulation")
 
     def _wait_for_mode(self, mode, verbose: bool = False):
         t0 = timeit.default_timer()

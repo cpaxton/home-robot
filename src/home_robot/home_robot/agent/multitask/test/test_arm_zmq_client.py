@@ -34,26 +34,26 @@ class TestArmZmqClient(HomeRobotZmqClient):
             output["depth"] = depth / 1000.0
 
             if first_frame:
-                self.move_to_manip_posture()
+                self.move_to_manip_posture(blocking=False)
                 first_frame = False
-
-            t1 = timeit.default_timer()
-            step = (t1 - start_t) % 10
-            if step % rate < 1:
-                # send a commend
-                if step > rate:
-                    # B POSITION
-                    q = [0, 0.5, 0.0, 0, 0, 0]
-                    if q != prev_q:
-                        print(f"{q=}")
-                        self.arm_to(q)
-                else:
-                    # a position
-                    q = [0.1, 0.75, 0.5, 0, 0, 0]
-                    if q != prev_q:
-                        print(f"{q=}")
-                        self.arm_to(q)
-                prev_q = q
+            else:
+                t1 = timeit.default_timer()
+                step = (t1 - start_t) % 10
+                if step % rate < 1:
+                    # send a commend
+                    if step > rate:
+                        # B POSITION
+                        q = [0, 0.5, 0.0, 0, 0, 0]
+                        if q != prev_q:
+                            print(f"{q=}")
+                            self.arm_to(q)
+                    else:
+                        # a position
+                        q = [0.1, 0.75, 0.5, 0, 0, 0]
+                        if q != prev_q:
+                            print(f"{q=}")
+                            self.arm_to(q)
+                    prev_q = q
 
             self._update_obs(output)
             # with self._act_lock:
