@@ -20,8 +20,8 @@ from PIL import Image
 # Mapping and perception
 import home_robot.utils.depth as du
 from home_robot.agent.multitask import get_parameters
-from home_robot.agent.multitask.receiver import HomeRobotZmqClient
 from home_robot.agent.multitask.robot_agent import RobotAgent
+from home_robot.agent.multitask.zmq_client import HomeRobotZmqClient
 from home_robot.core.robot import RobotClient
 from home_robot.perception import create_semantic_sensor
 
@@ -152,6 +152,7 @@ def demo_main(
     vlm_server_port: str = "50054",
     write_instance_images: bool = False,
     parameter_file: str = "src/robot_hw_python/configs/default.yaml",
+    debug_grasping: bool = True,
     **kwargs,
 ):
     """
@@ -171,10 +172,6 @@ def demo_main(
 
     print("- Load parameters")
     parameters = get_parameters(parameter_file)
-    print(parameters)
-
-    click.echo("Will connect to a Stretch robot and collect a short trajectory.")
-    print("- Connect to Stretch")
 
     if explore_iter >= 0:
         parameters["exploration_steps"] = explore_iter
@@ -183,7 +180,7 @@ def demo_main(
     print("- Create semantic sensor based on detic")
     _, semantic_sensor = create_semantic_sensor(device_id=device_id, verbose=verbose)
 
-    print("- Start robot agent with data collection")
+    print("- Create grasp planner")
     grasp_client = (
         None  # GraspPlanner(robot, env=None, semantic_sensor=semantic_sensor)
     )
@@ -200,6 +197,12 @@ def demo_main(
         print(f"Currently {len(matches)} matches for {object_to_find}.")
     else:
         matches = []
+
+    if debug_grasping:
+        print("Try to grasp an object")
+        print("1) Move the arm through a trajectory.")
+        robot.arm_to([0.5, 0.5, 0.5], blocking=True)
+        return
 
     # Rotate in place
     if parameters["in_place_rotation_steps"] > 0:
