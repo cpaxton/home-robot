@@ -390,11 +390,6 @@ class HomeRobotZmqClient(RobotClient):
         camera = None
         shown_point_cloud = visualize
 
-        # For debugging
-        prev_q = None
-        start_t = t0
-        rate = 3
-
         while not self._finish:
 
             output = self.recv_socket.recv_pyobj()
@@ -416,24 +411,6 @@ class HomeRobotZmqClient(RobotClient):
             if visualize and not shown_point_cloud:
                 show_point_cloud(output["xyz"], output["rgb"] / 255.0, orig=np.zeros(3))
                 shown_point_cloud = True
-
-            t1 = timeit.default_timer()
-            step = (t1 - start_t) % 10
-            if step % rate < 1:
-                # send a commend
-                if step > rate:
-                    # B POSITION
-                    q = [0, 0.5, 0.0, 0, 0, 0]
-                    if q != prev_q:
-                        print(f"{q=}")
-                        self.arm_to(q)
-                else:
-                    # a position
-                    q = [0.1, 0.75, 0.5, 0, 0, 0]
-                    if q != prev_q:
-                        print(f"{q=}")
-                        self.arm_to(q)
-                prev_q = q
 
             self._update_obs(output)
             # with self._act_lock:
