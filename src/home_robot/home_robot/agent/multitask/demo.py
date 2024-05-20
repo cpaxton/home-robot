@@ -20,8 +20,8 @@ from PIL import Image
 # Mapping and perception
 import home_robot.utils.depth as du
 from home_robot.agent.multitask import get_parameters
-from home_robot.agent.multitask.receiver import HomeRobotZmqClient
 from home_robot.agent.multitask.robot_agent import RobotAgent
+from home_robot.agent.multitask.zmq_client import HomeRobotZmqClient
 from home_robot.core.robot import RobotClient
 from home_robot.perception import create_semantic_sensor
 
