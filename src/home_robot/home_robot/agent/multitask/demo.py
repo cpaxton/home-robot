@@ -152,6 +152,7 @@ def demo_main(
     vlm_server_port: str = "50054",
     write_instance_images: bool = False,
     parameter_file: str = "src/robot_hw_python/configs/default.yaml",
+    debug_grasping: bool = True,
     **kwargs,
 ):
     """
@@ -196,6 +197,12 @@ def demo_main(
         print(f"Currently {len(matches)} matches for {object_to_find}.")
     else:
         matches = []
+
+    if debug_grasping:
+        print("Try to grasp an object")
+        print("1) Move the arm through a trajectory.")
+        robot.arm_to([0.5, 0.5, 0.5], blocking=True)
+        return
 
     # Rotate in place
     if parameters["in_place_rotation_steps"] > 0:
