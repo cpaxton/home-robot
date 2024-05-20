@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import time
 import timeit
 
 import click
@@ -35,6 +36,7 @@ class TestArmZmqClient(HomeRobotZmqClient):
 
             if first_frame:
                 self.move_to_manip_posture(blocking=False)
+                time.sleep(3.0)
                 first_frame = False
             else:
                 t1 = timeit.default_timer()
@@ -88,7 +90,7 @@ def main(
         send_port=send_port,
         use_remote_computer=(not local),
     )
-    client.blocking_spin(verbose=True, visualize=False)
+    client.blocking_spin(verbose=False)
 
 
 if __name__ == "__main__":
