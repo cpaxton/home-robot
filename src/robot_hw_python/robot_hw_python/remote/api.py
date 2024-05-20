@@ -271,8 +271,10 @@ class StretchClient(RobotClient):
         """Get 3x3 matrix of camera intrisics K"""
         return torch.from_numpy(self.head._ros_client.rgb_cam.K).float()
 
-    def arm_to(self, q):
+    def arm_to(self, q: np.ndarray):
         """Send arm commands"""
+        assert q.shape[-1] == 6
+        self.manip.goto_joint_positions(joint_positions=q)
 
 
 if __name__ == "__main__":

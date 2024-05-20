@@ -118,6 +118,8 @@ class HomeRobotZmqClient(RobotClient):
             joint_angles: 6 or Nx6 array of the joint angles to move to
             blocking: Whether to block until the motion is complete
         """
+        if isinstance(joint_angles, list):
+            joint_angles = np.array(joint_angles)
         assert (
             joint_angles.shape[-1] == 6
         ), "joint angles must be 6 dimensional: base_x, lift, arm, wrist roll, wrist pitch, wrist yaw"
@@ -388,6 +390,11 @@ class HomeRobotZmqClient(RobotClient):
         camera = None
         shown_point_cloud = visualize
 
+        # For debugging
+        prev_q = None
+        start_t = t0
+        rate = 3
+
         while not self._finish:
 
             output = self.recv_socket.recv_pyobj()
@@ -411,17 +418,22 @@ class HomeRobotZmqClient(RobotClient):
                 shown_point_cloud = True
 
             t1 = timeit.default_timer()
-            step = (t1 - t0) % 10
-            if step % 5 < 1:
+            step = (t1 - start_t) % 10
+            if step % rate < 1:
                 # send a commend
-                if step > 5:
+                if step > rate:
                     # B POSITION
                     q = [0, 0.5, 0.0, 0, 0, 0]
-                    print(f"{q=}")
+                    if q != prev_q:
+                        print(f"{q=}")
+                        self.arm_to(q)
                 else:
                     # a position
                     q = [0.1, 0.75, 0.5, 0, 0, 0]
-                    print(f"{q=}")
+                    if q != prev_q:
+                        print(f"{q=}")
+                        self.arm_to(q)
+                prev_q = q
 
             self._update_obs(output)
             # with self._act_lock:

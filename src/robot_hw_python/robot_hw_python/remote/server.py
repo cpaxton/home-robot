@@ -180,10 +180,10 @@ class ZmqServer:
                         relative=action["nav_relative"],
                     )
                 if "joint" in action:
-                    # TODO: remove debug from this
                     # This allows for executing motor commands on the robot relatively quickly
                     if self.verbose or True:
-                        print(f"Moving to {action['joint']}")
+                        print(f"Moving arm to config={action['joint']}")
+                        self.client.arm_to(action["joint"])
 
             # Finish with some speed info
             t1 = timeit.default_timer()
@@ -217,7 +217,7 @@ class ZmqServer:
 @click.command()
 @click.option("--send_port", default=4401, help="Port to send observations to")
 @click.option("--recv_port", default=4402, help="Port to receive actions from")
-@click.option("--desktop_ip", default="192.168.1.20", help="IP address of desktop")
+@click.option("--desktop_ip", default="192.168.1.15", help="IP address of desktop")
 @click.option("--local", is_flag=True, help="Run code locally on the robot.")
 def main(
     send_port: int = 4401,
