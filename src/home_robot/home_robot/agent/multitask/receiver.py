@@ -393,6 +393,19 @@ class HomeRobotZmqClient(RobotClient):
                 show_point_cloud(output["xyz"], output["rgb"] / 255.0, orig=np.zeros(3))
                 shown_point_cloud = True
 
+            t1 = timeit.default_timer()
+            step = (t1 - t0) % 10
+            if step % 5 < 1:
+                # send a commend
+                if step > 5:
+                    # B POSITION
+                    q = [0, 0.5, 0.0, 0, 0, 0]
+                    print(f"{q=}")
+                else:
+                    # a position
+                    q = [0.1, 0.75, 0.5, 0, 0, 0]
+                    print(f"{q=}")
+
             self._update_obs(output)
             # with self._act_lock:
             #    if len(self._next_action) > 0:
