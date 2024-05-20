@@ -31,6 +31,7 @@ setup(
             "state_estimator = robot_hw_python.nodes.state_estimator:main",
             "goto_controller = robot_hw_python.nodes.goto_controller:main",
             "odom_tf_publisher = robot_hw_python.nodes.odom_tf_publisher:main",
+            "server = robot_hw_python.remote.server:main",
         ],
     },
 )

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # (c) 2024 chris paxton for Hello Robot, under MIT license
 
 import threading
