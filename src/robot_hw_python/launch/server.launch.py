@@ -91,7 +91,6 @@ def generate_launch_description():
         executable="server",
         name="ros2_zmq_server",
         output="screen",
-        required=True,
     )
 
     camera_pose_publisher_node = Node(
