@@ -214,7 +214,9 @@ class ZmqServer:
         self._recv_thread.join()
 
 
-@click.command()
+@click.command(
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+)
 @click.option("--send_port", default=4401, help="Port to send observations to")
 @click.option("--recv_port", default=4402, help="Port to receive actions from")
 @click.option("--desktop_ip", default="192.168.1.15", help="IP address of desktop")
