@@ -18,7 +18,7 @@ class TestArmZmqClient(HomeRobotZmqClient):
         t0 = timeit.default_timer()
 
         # For debugging
-        prev_q = None
+        # prev_q = None
         start_t = t0
         rate = 3
         first_frame = True
@@ -46,16 +46,14 @@ class TestArmZmqClient(HomeRobotZmqClient):
                     if step > rate:
                         # B POSITION
                         q = [0, 0.5, 0.0, 0, 0, 0]
-                        if q != prev_q:
-                            print(f"{q=}")
-                            self.arm_to(q)
+                        print(f"{q=}")
+                        self.arm_to(q)
                     else:
                         # a position
                         q = [0.1, 0.75, 0.5, 0, 0, 0]
-                        if q != prev_q:
-                            print(f"{q=}")
-                            self.arm_to(q)
-                    prev_q = q
+                        print(f"{q=}")
+                        self.arm_to(q)
+                    # prev_q = q
 
             self._update_obs(output)
             # with self._act_lock:
