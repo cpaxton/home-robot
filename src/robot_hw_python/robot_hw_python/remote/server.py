@@ -22,7 +22,6 @@ class ZmqServer:
         send_port: int = 4401,
         recv_port: int = 4402,
         use_remote_computer: bool = True,
-        desktop_ip: Optional[str] = "192.168.1.10",
         verbose: bool = False,
     ):
         self.verbose = verbose
@@ -44,16 +43,18 @@ class ZmqServer:
 
         # Make connections
         if use_remote_computer:
-            address = "tcp://*:" + str(send_port)
-            assert desktop_ip is not None, "must provide a valid IP address for remote"
+            send_address = "tcp://*:" + str(send_port)
+            recv_address = "tcp://*:" + str(recv_port)
         else:
             desktop_ip = "127.0.0.1"
-            address = f"tcp://{desktop_ip}:" + str(send_port)
-        self.recv_address = f"tcp://{desktop_ip}:{recv_port}"
-        print(f"Publishing on {address}...")
-        self.send_socket.bind(address)
-        print(f"Waiting for actions on {self.recv_address}...")
-        self.recv_socket.connect(self.recv_address)
+            send_address = f"tcp://{desktop_ip}:" + str(send_port)
+            recv_address = f"tcp://{desktop_ip}:" + str(recv_port)
+        print(f"Publishing on {send_address}...")
+        self.send_socket.bind(send_address)
+        print(f"Listening on {recv_address}...")
+        self.recv_socket.bind(recv_address)
+        self.send_address = send_address
+        self.recv_address = recv_address
         print("Done!")
 
         # for the threads
@@ -219,19 +220,16 @@ class ZmqServer:
 )
 @click.option("--send_port", default=4401, help="Port to send observations to")
 @click.option("--recv_port", default=4402, help="Port to receive actions from")
-@click.option("--desktop_ip", default="192.168.1.15", help="IP address of desktop")
 @click.option("--local", is_flag=True, help="Run code locally on the robot.")
 def main(
     send_port: int = 4401,
     recv_port: int = 4402,
-    desktop_ip: str = "192.168.1.10",
     local: bool = False,
 ):
     rclpy.init()
     server = ZmqServer(
         send_port=send_port,
         recv_port=recv_port,
-        desktop_ip=desktop_ip,
         use_remote_computer=(not local),
     )
     server.start()

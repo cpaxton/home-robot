@@ -83,7 +83,8 @@ class HomeRobotZmqClient(RobotClient):
         self.send_socket.setsockopt(zmq.RCVHWM, 1)
         action_send_address = "tcp://*:" + str(self.send_port)
         print(f"Publishing actions on {action_send_address}...")
-        self.send_socket.bind(action_send_address)
+        # self.send_socket.bind(action_send_address)
+        self.send_socket.connect(self.address)
 
         # Use remote computer or whatever
         if use_remote_computer:
