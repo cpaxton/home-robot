@@ -436,6 +436,9 @@ class SparseVoxelMapNavigationSpace(XYT):
         """Compute frontier regions of the map"""
 
         obstacles, explored = self.voxel_map.get_2d_map()
+        # This should be all the spaces that we can explore to
+        traversible = explored & ~obstacles
+
         # Extract edges from our explored mask
         obstacles = binary_dilation(
             obstacles.float().unsqueeze(0).unsqueeze(0), self.dilate_obstacles_kernel
@@ -448,7 +451,6 @@ class SparseVoxelMapNavigationSpace(XYT):
         edges = get_edges(less_explored)
 
         # Do not explore obstacles any more
-        traversible = explored & ~obstacles
         frontier_edges = edges & ~obstacles
 
         kernel = self._get_kernel(expand_size)
