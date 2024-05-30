@@ -262,7 +262,8 @@ class StretchClient(RobotClient):
             gps=gps,
             compass=np.array([theta]),
             camera_pose=self.head.get_pose(rotated=rotate_head_pts),
-            joint=self.model.config_to_hab(joint_positions),
+            # joint=self.model.config_to_hab(joint_positions),
+            joint=joint_positions,
             camera_K=self.get_camera_intrinsics(),
         )
         return obs
