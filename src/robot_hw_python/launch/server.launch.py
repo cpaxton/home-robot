@@ -52,31 +52,8 @@ def generate_launch_description():
         )
     )
 
-    # offline_mapping_launch = IncludeLaunchDescription(
-    #    PythonLaunchDescriptionSource(
-    #        # [get_package_share_directory("slam_toolbox"), "/launch/offline_launch.py"]
-    #        [
-    #            get_package_share_directory("slam_toolbox"),
-    #            "/launch/online_async_launch.py",
-    #        ]
-    #    )
-    # )
-
     use_sim_time = LaunchConfiguration("use_sim_time")
     slam_params_file = LaunchConfiguration("slam_params_file")
-
-    declare_use_sim_time_argument = DeclareLaunchArgument(
-        "use_sim_time", default_value="false", description="Use simulation/Gazebo clock"
-    )
-    declare_slam_params_file_cmd = DeclareLaunchArgument(
-        "slam_params_file",
-        default_value=os.path.join(
-            get_package_share_directory("stretch_nav2"),
-            "config",
-            "mapper_params_online_async.yaml",
-        ),
-        description="Full path to the ROS2 parameters file to use for the slam_toolbox node",
-    )
 
     start_async_slam_toolbox_node = Node(
         parameters=[slam_params_file, {"use_sim_time": use_sim_time}],
@@ -117,7 +94,6 @@ def generate_launch_description():
         [
             # start_robot_arg,
             stretch_driver_launch,
-            # offline_mapping_launch,
             realsense_launch,
             lidar_launch,
             camera_pose_publisher_node,
