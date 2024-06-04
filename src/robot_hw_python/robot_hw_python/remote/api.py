@@ -166,9 +166,9 @@ class StretchClient(RobotClient):
         """Move the arm and head into manip mode posture: gripper down, head facing the gripper."""
         self.switch_to_manipulation_mode()
         self.head.look_at_ee(blocking=False)
-        self.manip.goto_joint_positions(
-            self.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
-        )
+        pos = self.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
+        print("- go to configuration:", pos)
+        self.manip.goto_joint_positions(pos)
         print("- Robot switched to manipulation mode.")
 
     def move_to_demo_pregrasp_posture(self):
