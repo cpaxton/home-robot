@@ -12,6 +12,7 @@ import numpy as np
 import rclpy
 import zmq
 
+import home_robot.utils.compression as compression
 from home_robot.core.interfaces import ContinuousNavigationAction
 from robot_hw_python.remote import StretchClient
 
@@ -69,7 +70,8 @@ class ZmqServer:
         t0 = timeit.default_timer()
         while rclpy.ok() and not self._done:
             # get information
-            obs = self.client.get_observation()
+            # Still about 0.01 seconds to get observations
+            obs = self.client.get_observation(compute_xyz=False)
             rgb, depth = obs.rgb, obs.depth
             width, height = rgb.shape[:2]
 
@@ -90,9 +92,10 @@ class ZmqServer:
                 control_mode = "none"
 
             # Get the other fields from an observation
+            # rgb = compression.to_webp(rgb)
             data = {
-                "rgb": rgb,
-                "depth": depth,
+                # "rgb": compression.to_webp(rgb),
+                # "depth": compression.zip_depth(depth),
                 "camera_K": obs.camera_K.cpu().numpy(),
                 "camera_pose": obs.camera_pose,
                 "joint": obs.joint,
@@ -106,7 +109,6 @@ class ZmqServer:
                 "step": self._last_step,
                 "at_goal": self.client.at_goal(),
             }
-
             self.send_socket.send_pyobj(data)
 
             # Finish with some speed info
@@ -115,10 +117,10 @@ class ZmqServer:
             sum_time += dt
             steps += 1
             t0 = t1
-            if self.verbose:
+            if True or self.verbose:
                 print(f"[SEND] time taken = {dt} avg = {sum_time/steps}")
 
-            time.sleep(0.1)
+            time.sleep(1e-4)
             t0 = timeit.default_timer()
 
     def spin_recv(self):
@@ -203,7 +205,7 @@ class ZmqServer:
             if self.verbose:
                 print(f"[RECV] time taken = {dt} avg = {sum_time/steps}")
 
-            time.sleep(0.1)
+            time.sleep(1e-4)
             t0 = timeit.default_timer()
 
     def start(self):

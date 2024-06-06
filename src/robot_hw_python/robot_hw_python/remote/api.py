@@ -228,16 +228,24 @@ class StretchClient(RobotClient):
         return self.nav.navigate_to(xyt, relative=relative, blocking=blocking)
 
     def get_observation(
-        self, rotate_head_pts=False, start_pose: Optional[np.ndarray] = None
+        self,
+        rotate_head_pts=False,
+        start_pose: Optional[np.ndarray] = None,
+        compute_xyz: bool = True,
     ) -> Observations:
         """Get an observation from the current robot.
 
         Parameters:
             rotate_head_pts: this is true to put things into the same format as Habitat; generally we do not want to do this
         """
-        rgb, depth, xyz = self.head.get_images(
-            compute_xyz=True,
-        )
+
+        # Computing XYZ is expensive, we do not always needd to do it
+        if compute_xyz:
+            rgb, depth, xyz = self.head.get_images(compute_xyz=True)
+        else:
+            rgb, depth = self.head.get_images(compute_xyz=False)
+            xyz = None
+
         current_pose = xyt2sophus(self.nav.get_base_pose())
 
         if start_pose is not None:
@@ -256,9 +264,9 @@ class StretchClient(RobotClient):
 
         # Create the observation
         obs = Observations(
-            rgb=rgb.copy(),
-            depth=depth.copy(),
-            xyz=xyz.copy(),
+            rgb=rgb,
+            depth=depth,
+            xyz=xyz,
             gps=gps,
             compass=np.array([theta]),
             camera_pose=self.head.get_pose(rotated=rotate_head_pts),
@@ -266,6 +274,19 @@ class StretchClient(RobotClient):
             joint=joint_positions,
             camera_K=self.get_camera_intrinsics(),
         )
+
+        # Create the observation
+        # obs = Observations(
+        #    rgb=rgb.copy(),
+        #    depth=depth.copy(),
+        #    xyz=xyz.copy(),
+        #    gps=gps,
+        #    compass=np.array([theta]),
+        #    camera_pose=self.head.get_pose(rotated=rotate_head_pts),
+        #    # joint=self.model.config_to_hab(joint_positions),
+        #    joint=joint_positions,
+        #    camera_K=self.get_camera_intrinsics(),
+        # )
         return obs
 
     def get_camera_intrinsics(self) -> torch.Tensor:
