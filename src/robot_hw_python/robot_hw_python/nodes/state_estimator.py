@@ -12,8 +12,6 @@ import rclpy
 import sophuspy as sp
 import tf2_ros
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, TransformStamped
-from home_robot.motion.stretch import STRETCH_BASE_FRAME
-from home_robot.utils.pose import to_matrix, transform_to_list
 from nav_msgs.msg import Odometry
 from rclpy.duration import Duration
 from rclpy.node import Node
@@ -21,6 +19,8 @@ from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
+from home_robot.motion.stretch import STRETCH_BASE_FRAME
+from home_robot.utils.pose import to_matrix, transform_to_list
 from robot_hw_python.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 
 log = logging.getLogger(__name__)
@@ -123,6 +123,7 @@ class NavStateEstimator(Node):
          - https://en.wikipedia.org/wiki/High-pass_filter#Algorithmic_implementation
          - https://en.wikipedia.org/wiki/Low-pass_filter#Simple_infinite_impulse_response_filter
         """
+
         # Compute mixing coefficient
         w = cutoff_angle(t_interval, SLAM_CUTOFF_HZ)
         coeff = 1 / (w + 1)
@@ -139,7 +140,9 @@ class NavStateEstimator(Node):
         pose_diff_odom = self._pose_odom_prev.inverse() * odom_update
 
         # Mix and inject signals
-        pose_diff_log = coeff * pose_diff_odom.log() + (1 - coeff) * pose_diff_slam.log()
+        pose_diff_log = (
+            coeff * pose_diff_odom.log() + (1 - coeff) * pose_diff_slam.log()
+        )
         return slam_pose * sp.SE3.exp(pose_diff_log)
 
     def _odom_callback(self, pose: Odometry):
@@ -155,7 +158,9 @@ class NavStateEstimator(Node):
         #
         t_interval_secs = (t_curr - self._t_odom_prev).nanoseconds * 1e-9
 
-        self._filtered_pose = self._filter_signals(self._slam_pose_sp, pose_odom, t_interval_secs)
+        self._filtered_pose = self._filter_signals(
+            self._slam_pose_sp, pose_odom, t_interval_secs
+        )
         self._publish_filtered_state(pose.header.stamp)
 
         # Update variables
@@ -173,7 +178,9 @@ class NavStateEstimator(Node):
         try:
             # Added transform_to_list function to handle change in return type of tf2 lookup_transform
             trans, rot = transform_to_list(
-                self.tf_buffer.lookup_transform("map", STRETCH_BASE_FRAME, rclpy.time.Time())
+                self.tf_buffer.lookup_transform(
+                    "map", STRETCH_BASE_FRAME, rclpy.time.Time()
+                )
             )
             matrix = to_matrix(trans, rot)
 
@@ -212,7 +219,9 @@ class NavStateEstimator(Node):
         # )
         self.create_timer(1 / 10, self.get_pose)
         # This pose update comes from wheel odometry
-        self.odom_subcriber = self.create_subscription(Odometry, "/odom", self._odom_callback, 1)
+        self.odom_subcriber = self.create_subscription(
+            Odometry, "/odom", self._odom_callback, 1
+        )
 
         # Run
         log.info("State Estimator launched.")
@@ -221,7 +230,7 @@ class NavStateEstimator(Node):
 def main():
     rclpy.init()
 
-    state_estimator = NavStateEstimator()
+    state_estimator = NavStateEstimator(trust_slam=True, use_history=True)
     rclpy.spin(state_estimator)
 
     state_estimator.destroy_node()

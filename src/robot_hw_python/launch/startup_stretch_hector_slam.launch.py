@@ -86,23 +86,6 @@ def generate_launch_description():
         output="screen",
     )
 
-    # rviz_launch = IncludeLaunchDescription(
-    #     PythonLaunchDescriptionSource(
-    #         os.path.join(
-    #             get_package_share_directory("robot_hw_python"),
-    #             'launch/visualization.launch.py'
-    #         )
-    #     )
-    # )
-
-    # nav2_offline_launch = IncludeLaunchDescription(
-    #     PythonLaunchDescriptionSource(
-    #         os.path.join(
-    #             get_package_share_directory("stretch_nav2"), "launch/offline_mapping.launch.py"
-    #         )
-    #     )
-    # )
-
     camera_pose_publisher_node = Node(
         package="robot_hw_python",
         executable="camera_pose_publisher",
@@ -116,7 +99,10 @@ def generate_launch_description():
     )
 
     state_estimator_node = Node(
-        package="robot_hw_python", executable="state_estimator", name="state_estimator"
+        package="robot_hw_python",
+        executable="state_estimator",
+        name="state_estimator",
+        output="screen",
     )
 
     goto_controller_node = Node(
