@@ -139,6 +139,10 @@ class ZmqServer:
                 if True or self.verbose:
                     print(f" - Action received: {action}")
                 self._last_step = action.get("step", -1)
+                print(
+                    f"Action #{self._last_step} received:",
+                    [str(key) for key in action.keys()],
+                )
                 if self.verbose:
                     print(f" - last action step: {self._last_step}")
                 if "posture" in action:
@@ -168,7 +172,7 @@ class ZmqServer:
                             "not recognized or supported.",
                         )
                 if "xyt" in action:
-                    if True or self.verbose:
+                    if self.verbose:
                         print(
                             "Is robot in navigation mode?",
                             self.client.in_navigation_mode(),
