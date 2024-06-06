@@ -186,7 +186,7 @@ class ZmqServer:
                     )
                 if "joint" in action:
                     # This allows for executing motor commands on the robot relatively quickly
-                    if self.verbose or True:
+                    if self.verbose:
                         print(f"Moving arm to config={action['joint']}")
                     self.client.arm_to(action["joint"])
                 if "gripper" in action:

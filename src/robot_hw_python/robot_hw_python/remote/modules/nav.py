@@ -179,10 +179,10 @@ class StretchNavigationClient(AbstractControlModule):
         if avoid_obstacles:
             raise NotImplementedError("Obstacle avoidance unavailable.")
 
-        self._ros_client.get_logger().info("Setting yaw service")
+        # self._ros_client.get_logger().info("Setting yaw service")
         # Set yaw tracking
         self._ros_client.set_yaw_service.call(SetBool.Request(data=(not position_only)))
-        self._ros_client.get_logger().info("Yaw service set")
+        # self._ros_client.get_logger().info("Yaw service set")
 
         # Compute absolute goal
         if relative:
@@ -190,7 +190,7 @@ class StretchNavigationClient(AbstractControlModule):
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
         else:
             xyt_goal = xyt
-        self._ros_client.get_logger().info(f"Sending XYT Goal {xyt_goal=}")
+        # self._ros_client.get_logger().info(f"Sending XYT Goal {xyt_goal=}")
 
         # Clear self.at_goal
         self._ros_client.at_goal = False
