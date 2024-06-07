@@ -88,6 +88,15 @@ class ZmqServer:
         self.control_mode = "none"
         self._done = False
 
+    def get_control_mode(self):
+        if self.client.in_manipulation_mode():
+            control_mode = "manipulation"
+        elif self.client.in_navigation_mode():
+            control_mode = "navigation"
+        else:
+            control_mode = "none"
+        return control_mode
+
     def spin_send(self):
 
         # Create a stretch client to get information
@@ -110,13 +119,6 @@ class ZmqServer:
                 ".jp2", depth, [cv2.IMWRITE_JPEG2000_COMPRESSION_X1000, 800]
             )
 
-            if self.client.in_manipulation_mode():
-                control_mode = "manipulation"
-            elif self.client.in_navigation_mode():
-                control_mode = "navigation"
-            else:
-                control_mode = "none"
-
             # Get the other fields from an observation
             # rgb = compression.to_webp(rgb)
             data = {
@@ -129,7 +131,7 @@ class ZmqServer:
                 "compass": obs.compass,
                 "rgb_width": width,
                 "rgb_height": height,
-                "control_mode": control_mode,
+                "control_mode": self.get_control_mode(),
                 "last_motion_failed": self.client.last_motion_failed(),
                 "recv_address": self.recv_address,
                 "step": self._last_step,
@@ -162,6 +164,7 @@ class ZmqServer:
                 "joint_positions": q,
                 "joint_velocities": dq,
                 "joint_efforts": eff,
+                "control_mode": self.get_control_mode(),
             }
             self.send_state_socket.send_pyobj(message)
 
