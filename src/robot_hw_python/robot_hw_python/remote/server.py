@@ -18,10 +18,31 @@ from robot_hw_python.remote import StretchClient
 
 
 class ZmqServer:
+
+    # How often should we print out info about our performance
+    report_steps = 100
+
+    def _make_pub_socket(self, send_port, use_remote_computer: bool = True):
+        socket = self.context.socket(zmq.PUB)
+        socket.setsockopt(zmq.SNDHWM, 1)
+        socket.setsockopt(zmq.RCVHWM, 1)
+
+        if use_remote_computer:
+            send_address = "tcp://*:" + str(send_port)
+        else:
+            desktop_ip = "127.0.0.1"
+            send_address = f"tcp://{desktop_ip}:" + str(send_port)
+
+        print(f"Publishing on {send_address}...")
+        socket.bind(send_address)
+        return socket
+
     def __init__(
         self,
         send_port: int = 4401,
         recv_port: int = 4402,
+        send_state_port: int = 4403,
+        send_servo_port: int = 4404,
         use_remote_computer: bool = True,
         verbose: bool = False,
     ):
@@ -30,9 +51,17 @@ class ZmqServer:
         self.context = zmq.Context()
 
         # Set up the publisher socket using ZMQ
-        self.send_socket = self.context.socket(zmq.PUB)
-        self.send_socket.setsockopt(zmq.SNDHWM, 1)
-        self.send_socket.setsockopt(zmq.RCVHWM, 1)
+        self.send_socket = self._make_pub_socket(send_port, use_remote_computer)
+
+        # Publisher for state-only messages (FAST spin rate)
+        self.send_state_socket = self._make_pub_socket(
+            send_state_port, use_remote_computer
+        )
+
+        # Publisher for visual servoing images (lower size, faster publishing rate)
+        self.send_servo_socket = self._make_pub_socket(
+            send_servo_port, use_remote_computer
+        )
 
         # Set up the receiver/subscriber using ZMQ
         self.recv_socket = self.context.socket(zmq.SUB)
@@ -44,18 +73,13 @@ class ZmqServer:
 
         # Make connections
         if use_remote_computer:
-            send_address = "tcp://*:" + str(send_port)
             recv_address = "tcp://*:" + str(recv_port)
         else:
             desktop_ip = "127.0.0.1"
-            send_address = f"tcp://{desktop_ip}:" + str(send_port)
             recv_address = f"tcp://{desktop_ip}:" + str(recv_port)
-        print(f"Publishing on {send_address}...")
-        self.send_socket.bind(send_address)
+
         print(f"Listening on {recv_address}...")
         self.recv_socket.bind(recv_address)
-        self.send_address = send_address
-        self.recv_address = recv_address
         print("Done!")
 
         # for the threads
@@ -94,8 +118,8 @@ class ZmqServer:
             # Get the other fields from an observation
             # rgb = compression.to_webp(rgb)
             data = {
-                # "rgb": compression.to_webp(rgb),
-                # "depth": compression.zip_depth(depth),
+                "rgb": rgb,
+                "depth": depth,
                 "camera_K": obs.camera_K.cpu().numpy(),
                 "camera_pose": obs.camera_pose,
                 "joint": obs.joint,
@@ -117,7 +141,7 @@ class ZmqServer:
             sum_time += dt
             steps += 1
             t0 = t1
-            if True or self.verbose:
+            if self.verbose or steps % self.report_steps == 0:
                 print(f"[SEND] time taken = {dt} avg = {sum_time/steps}")
 
             time.sleep(1e-4)
