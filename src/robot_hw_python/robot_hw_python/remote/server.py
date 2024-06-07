@@ -21,6 +21,7 @@ class ZmqServer:
 
     # How often should we print out info about our performance
     report_steps = 100
+    fast_report_steps = 10000
 
     def _make_pub_socket(self, send_port, use_remote_computer: bool = True):
         socket = self.context.socket(zmq.PUB)
@@ -80,6 +81,7 @@ class ZmqServer:
 
         print(f"Listening on {recv_address}...")
         self.recv_socket.bind(recv_address)
+        self.recv_address = recv_address
         print("Done!")
 
         # for the threads
@@ -90,7 +92,7 @@ class ZmqServer:
 
         # Create a stretch client to get information
         sum_time: float = 0
-        steps = 0
+        steps: int = 0
         t0 = timeit.default_timer()
         while rclpy.ok() and not self._done:
             # get information
@@ -142,7 +144,35 @@ class ZmqServer:
             steps += 1
             t0 = t1
             if self.verbose or steps % self.report_steps == 0:
-                print(f"[SEND] time taken = {dt} avg = {sum_time/steps}")
+                print(f"[SEND FULL STATE] time taken = {dt} avg = {sum_time/steps}")
+
+            time.sleep(1e-4)
+            t0 = timeit.default_timer()
+
+    def spin_send_state(self):
+        """Send a faster version of the state for tracking joint states and robot base"""
+        # Create a stretch client to get information
+        sum_time: float = 0
+        steps: int = 0
+        t0 = timeit.default_timer()
+        while rclpy.ok() and not self._done:
+            q, dq, eff = self.client.get_joint_state()
+            message = {
+                "base_pose": self.client.get_base_pose(),
+                "joint_positions": q,
+                "joint_velocities": dq,
+                "joint_efforts": eff,
+            }
+            self.send_state_socket.send_pyobj(message)
+
+            # Finish with some speed info
+            t1 = timeit.default_timer()
+            dt = t1 - t0
+            sum_time += dt
+            steps += 1
+            t0 = t1
+            if self.verbose or steps % self.fast_report_steps == 0:
+                print(f"[SEND FAST STATE] time taken = {dt} avg = {sum_time/steps}")
 
             time.sleep(1e-4)
             t0 = timeit.default_timer()
@@ -226,7 +256,7 @@ class ZmqServer:
             sum_time += dt
             steps += 1
             t0 = t1
-            if self.verbose:
+            if self.verbose or steps % self.fast_report_steps == 0:
                 print(f"[RECV] time taken = {dt} avg = {sum_time/steps}")
 
             time.sleep(1e-4)
@@ -236,17 +266,24 @@ class ZmqServer:
         """Starts both threads spinning separately for efficiency."""
         self._send_thread = threading.Thread(target=self.spin_send)
         self._recv_thread = threading.Thread(target=self.spin_recv)
+        self._send_state_thread = threading.Thread(target=self.spin_send_state)
         self._done = False
         self._send_thread.start()
         self._recv_thread.start()
+        self._send_state_thread.start()
 
     def __del__(self):
         self._done = True
+        # Wait for the threads to finish
+        time.sleep(0.15)
+        # Close sockets
         self.recv_socket.close()
         self.send_socket.close()
+        self.send_state_socket.close()
         self.context.term()
         self._send_thread.join()
         self._recv_thread.join()
+        self._send_state_thread.join()
 
 
 @click.command(
