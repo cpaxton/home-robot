@@ -5,7 +5,7 @@
 from setuptools import find_packages, setup
 
 install_requires = [
-    "numpy",
+    "numpy==1.23.*",
     "scipy",
     "hydra-core",
     "yacs",
@@ -21,7 +21,7 @@ install_requires = [
     # "torch_cluster",
     # "torch_scatter",
     # "pillow==9.5.0",  # For Detic compatibility
-    "pyqt6"
+    "pyqt6",
 ]
 
 setup(
