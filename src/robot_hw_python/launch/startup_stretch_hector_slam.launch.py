@@ -43,6 +43,7 @@ def generate_launch_description():
         "spatial_filter.enable": "True",
         "temporal_filter.enable": "True",
         "disparity_filter.enable": "True",
+        "device_type": "d435i",
     }
     realsense_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(

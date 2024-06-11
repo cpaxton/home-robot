@@ -35,13 +35,23 @@ def generate_launch_description():
         launch_arguments={"mode": "navigation", "broadcast_odom_tf": "True"}.items(),
     )
 
+    realsense_config = {
+        "align_depth.enable": "True",
+        "camera_name": "camera",
+        "camera_namespace": "",
+        "decimation_filter.enable": "True",
+        "spatial_filter.enable": "True",
+        "temporal_filter.enable": "True",
+        "disparity_filter.enable": "True",
+        "device_type": "d435i",
+    }
     realsense_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
                 get_package_share_directory("realsense2_camera"), "launch/rs_launch.py"
             )
         ),
-        launch_arguments={"align_depth.enable": "True"}.items(),
+        launch_arguments=realsense_config.items(),
     )
 
     lidar_launch = IncludeLaunchDescription(
