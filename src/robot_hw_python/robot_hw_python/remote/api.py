@@ -39,6 +39,7 @@ class StretchClient(RobotClient):
         grasp_frame: Optional[str] = None,
         ee_link_name: Optional[str] = None,
         manip_mode_controlled_joints: Optional[List[str]] = None,
+        d405: bool = True,
     ):
         """Create an interface into ROS execution here. This one needs to connect to:
             - joint_states to read current position
@@ -51,7 +52,9 @@ class StretchClient(RobotClient):
 
         if camera_overrides is None:
             camera_overrides = {}
-        self._ros_client = StretchRosInterface(**camera_overrides)
+        self._ros_client = StretchRosInterface(
+            init_lidar=False, d405=d405, **camera_overrides
+        )
 
         # Robot model
         self._robot_model = HelloStretchKinematics(
@@ -154,6 +157,14 @@ class StretchClient(RobotClient):
     @property
     def dpt_cam(self):
         return self._ros_client.dpt_cam
+
+    @property
+    def ee_dpt_cam(self):
+        return self._ros_client.ee_dpt_cam
+
+    @property
+    def ee_rgb_cam(self):
+        return self._ros_client.ee_rgb_cam
 
     def get_joint_state(self):
         return self._ros_client.get_joint_state()

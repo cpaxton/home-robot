@@ -22,6 +22,7 @@ class ZmqServer:
     # How often should we print out info about our performance
     report_steps = 100
     fast_report_steps = 10000
+    debug_compression: bool = True
 
     def _make_pub_socket(self, send_port, use_remote_computer: bool = True):
         socket = self.context.socket(zmq.PUB)
@@ -46,12 +47,14 @@ class ZmqServer:
         send_servo_port: int = 4404,
         use_remote_computer: bool = True,
         verbose: bool = False,
-        image_scaling: float = 0.5,
+        image_scaling: float = 0.25,
+        ee_image_scaling: float = 1.0,  # 0.6,
     ):
         self.verbose = verbose
-        self.client = StretchClient()
+        self.client = StretchClient(d405=True)
         self.context = zmq.Context()
         self.image_scaling = image_scaling
+        self.ee_image_scaling = ee_image_scaling
 
         # Set up the publisher socket using ZMQ
         self.send_socket = self._make_pub_socket(send_port, use_remote_computer)
@@ -267,19 +270,19 @@ class ZmqServer:
             time.sleep(1e-4)
             t0 = timeit.default_timer()
 
-    def _rescale_color_and_depth(self, color_image, depth_image):
+    def _rescale_color_and_depth(self, color_image, depth_image, scaling: float = 0.5):
         color_image = cv2.resize(
             color_image,
             (0, 0),
-            fx=self.scaling,
-            fy=self.scaling,
+            fx=scaling,
+            fy=scaling,
             interpolation=cv2.INTER_AREA,
         )
         depth_image = cv2.resize(
             depth_image,
             (0, 0),
-            fx=self.scaling,
-            fy=self.scaling,
+            fx=scaling,
+            fy=scaling,
             interpolation=cv2.INTER_NEAREST,
         )
         return color_image, depth_image
@@ -299,21 +302,30 @@ class ZmqServer:
             # Read images from the end effector and head cameras
             obs = self.client.get_observation(compute_xyz=False)
             head_color_image, head_depth_image = self._rescale_color_and_depth(
-                obs.rgb, obs.depth
+                obs.rgb, obs.depth, self.image_scaling
+            )
+            ee_depth_image = self.client.ee_dpt_cam.get()
+            ee_color_image = self.client.ee_rgb_cam.get()
+            ee_color_image, ee_depth_image = self._rescale_color_and_depth(
+                ee_color_image, ee_depth_image, self.ee_image_scaling
             )
             # depth_image, color_image = self._get_images(from_head=False, verbose=verbose)
 
             if self.debug_compression:
                 ct0 = timeit.default_timer()
-            # compressed_depth_image = compression.zip_depth(depth_image)
+            compressed_ee_depth_image = compression.zip_depth(ee_depth_image)
             compressed_head_depth_image = compression.zip_depth(head_depth_image)
-            # depth_image2 = compression.unzip_depth(compressed_depth_image)
             if self.debug_compression:
                 ct1 = timeit.default_timer()
-            # compressed_color_image = compression.to_webp(color_image)
+            compressed_ee_color_image = compression.to_webp(ee_color_image)
             compressed_head_color_image = compression.to_webp(head_color_image)
-            # color_image2 = compression.from_webp(compressed_color_image)
+            # compressed_head_color_image = compressed_ee_color_image
             if self.debug_compression:
+                # TODO: remove debug code
+                # print(f"{ee_color_image.shape=}")
+                # print(f"{ee_depth_image.shape=}")
+                # print(f"{head_color_image.shape=}")
+                # print(f"{head_depth_image.shape=}")
                 ct2 = timeit.default_timer()
                 print(
                     ct1 - ct0,
@@ -321,29 +333,24 @@ class ZmqServer:
                     ct2 - ct1,
                     f"{len(compressed_head_color_image)=}",
                 )
-            # breakpoint()
-
-            config = self.gripper_to_goal.get_current_config()
-            ee_pos, ee_rot = self.gripper_to_goal.get_current_ee_pose()
 
             d405_output = {
-                # "ee_cam/color_camera_K": color_camera_info,
-                # "ee_cam/depth_camera_K": depth_camera_info,
-                # "ee_cam/color_image": compressed_color_image,
-                # "ee_cam/color_image/shape": color_image.shape,
-                # "ee_cam/depth_image": compressed_depth_image,
-                # "ee_cam/depth_image/shape": depth_image.shape,
-                # "ee_cam/image_scaling": self.image_scaling,
-                # "head_cam/color_camera_K": head_color_camera_info,
-                # "head_cam/depth_camera_K": head_depth_camera_info,
+                "ee_cam/color_camera_K": self.client.ee_rgb_cam.get_K(),
+                "ee_cam/depth_camera_K": self.client.ee_dpt_cam.get_K(),
+                "ee_cam/color_image": compressed_ee_color_image,
+                "ee_cam/color_image/shape": ee_color_image.shape,
+                "ee_cam/depth_image": compressed_ee_depth_image,
+                "ee_cam/depth_image/shape": ee_depth_image.shape,
+                "head_cam/color_camera_K": self.client.rgb_cam.get_K(),
+                "head_cam/depth_camera_K": self.client.dpt_cam.get_K(),
                 "head_cam/color_image": compressed_head_color_image,
                 "head_cam/color_image/shape": head_color_image.shape,
                 "head_cam/depth_image": compressed_head_depth_image,
                 "head_cam/depth_image/shape": head_depth_image.shape,
                 "head_cam/image_scaling": self.image_scaling,
-                "robot/config": config,
-                "robot/ee_position": ee_pos,
-                "robot/ee_rotation": ee_rot,
+                "robot/config": obs.joint,
+                # "robot/ee_position": ee_pos,
+                # "robot/ee_rotation": ee_rot,
             }
 
             self.send_servo_socket.send_pyobj(d405_output)
@@ -354,10 +361,12 @@ class ZmqServer:
             sum_time += dt
             steps += 1
             t0 = t1
-            if self.verbose or steps % self.fast_report_steps == 0:
-                print(f"[SEND SERVO STATE] time taken = {dt} avg = {sum_time/steps}")
+            # if self.verbose or steps % self.fast_report_steps == 0:
+            print(
+                f"[SEND SERVO STATE] time taken = {dt} avg = {sum_time/steps} rate={1/(sum_time/steps)}"
+            )
 
-            time.sleep(1e-4)
+            time.sleep(1e-5)
             t0 = timeit.default_timer()
 
     def start(self):
@@ -370,19 +379,24 @@ class ZmqServer:
         self._send_thread.start()
         self._recv_thread.start()
         self._send_state_thread.start()
+        self._send_servo_thread.start()
 
     def __del__(self):
         self._done = True
         # Wait for the threads to finish
         time.sleep(0.15)
+
+        # Close threads
+        self._send_thread.join()
+        self._recv_thread.join()
+        self._send_state_thread.join()
+        self._send_servo_thread.join()
+
         # Close sockets
         self.recv_socket.close()
         self.send_socket.close()
         self.send_state_socket.close()
         self.context.term()
-        self._send_thread.join()
-        self._recv_thread.join()
-        self._send_state_thread.join()
 
 
 @click.command(

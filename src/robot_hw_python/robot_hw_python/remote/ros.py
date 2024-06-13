@@ -48,6 +48,8 @@ from robot_hw_python.ros.visualizer import Visualizer
 DEFAULT_COLOR_TOPIC = "/camera/color"
 DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
 DEFAULT_LIDAR_TOPIC = "/scan"
+DEFAULT_EE_COLOR_TOPIC = "/ee_camera/color"
+DEFAULT_EE_DEPTH_TOPIC = "/ee_camera/aligned_depth_to_color"
 
 
 class StretchRosInterface(Node):
@@ -83,6 +85,9 @@ class StretchRosInterface(Node):
         init_lidar: bool = True,
         lidar_topic: Optional[str] = None,
         verbose: bool = False,
+        d405: bool = True,
+        ee_color_topic: Optional[str] = None,
+        ee_depth_topic: Optional[str] = None,
     ):
         super().__init__("stretch_user_client")
         # Verbosity for the ROS client
@@ -124,13 +129,19 @@ class StretchRosInterface(Node):
         # Initialize cameras
         self._color_topic = DEFAULT_COLOR_TOPIC if color_topic is None else color_topic
         self._depth_topic = DEFAULT_DEPTH_TOPIC if depth_topic is None else depth_topic
+        self._ee_color_topic = (
+            DEFAULT_EE_COLOR_TOPIC if ee_color_topic is None else ee_color_topic
+        )
+        self._ee_depth_topic = (
+            DEFAULT_EE_DEPTH_TOPIC if ee_depth_topic is None else ee_depth_topic
+        )
         self._lidar_topic = DEFAULT_LIDAR_TOPIC if lidar_topic is None else lidar_topic
         self._depth_buffer_size = depth_buffer_size
 
         self.rgb_cam: RosCamera = None
         self.dpt_cam: RosCamera = None
         if init_cameras:
-            self._create_cameras()
+            self._create_cameras(use_d405=d405)
             self._wait_for_cameras()
         if init_lidar:
             self._lidar = RosLidar(self, self._lidar_topic)
@@ -368,7 +379,7 @@ class StretchRosInterface(Node):
         for i in range(3, self.dof):
             self.ros_joint_names += CONFIG_TO_ROS[i]
 
-    def _create_cameras(self):
+    def _create_cameras(self, use_d405: bool = True):
         if self.rgb_cam is not None or self.dpt_cam is not None:
             raise RuntimeError("Already created cameras")
         print("Creating cameras...")
@@ -381,6 +392,22 @@ class StretchRosInterface(Node):
             rotations=STRETCH_HEAD_CAMERA_ROTATIONS,
             buffer_size=self._depth_buffer_size,
         )
+        if use_d405:
+            self.ee_rgb_cam = RosCamera(
+                self,
+                self._ee_color_topic,
+                rotations=STRETCH_HEAD_CAMERA_ROTATIONS,
+                image_ext="/image_rect_raw",
+            )
+            self.ee_dpt_cam = RosCamera(
+                self,
+                self._ee_depth_topic,
+                rotations=STRETCH_HEAD_CAMERA_ROTATIONS,
+                image_ext="/image_raw",
+            )
+        else:
+            self.ee_rgb_cam = None
+            self.ee_dpt_cam = None
         self.filter_depth = self._depth_buffer_size is not None
 
     def _wait_for_lidar(self):
@@ -394,6 +421,12 @@ class StretchRosInterface(Node):
         self.rgb_cam.wait_for_image()
         print("Waiting for depth camera images...")
         self.dpt_cam.wait_for_image()
+        if self.ee_rgb_cam is not None:
+            print("Waiting for end effector rgb camera images...")
+            self.ee_rgb_cam.wait_for_image()
+        if self.ee_dpt_cam is not None:
+            print("Waiting for end effector depth camera images...")
+            self.ee_dpt_cam.wait_for_image()
         print("..done.")
         if self.verbose:
             print("rgb frame =", self.rgb_cam.get_frame())
