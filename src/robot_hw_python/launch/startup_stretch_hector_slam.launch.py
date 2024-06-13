@@ -44,6 +44,8 @@ def generate_launch_description():
         "temporal_filter.enable": "True",
         "disparity_filter.enable": "True",
         "device_type": "d435i",
+        "rgb_camera.profile": "1280x720x15",
+        "depth_module.profile": "848x480x15",
     }
     realsense_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
