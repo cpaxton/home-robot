@@ -22,7 +22,7 @@ class ZmqServer:
     # How often should we print out info about our performance
     report_steps = 100
     fast_report_steps = 10000
-    debug_compression: bool = True
+    debug_compression: bool = False
 
     def _make_pub_socket(self, send_port, use_remote_computer: bool = True):
         socket = self.context.socket(zmq.PUB)
@@ -341,6 +341,7 @@ class ZmqServer:
                 "ee_cam/color_image/shape": ee_color_image.shape,
                 "ee_cam/depth_image": compressed_ee_depth_image,
                 "ee_cam/depth_image/shape": ee_depth_image.shape,
+                "ee_cam/image_scaling": self.ee_image_scaling,
                 "head_cam/color_camera_K": self.client.rgb_cam.get_K(),
                 "head_cam/depth_camera_K": self.client.dpt_cam.get_K(),
                 "head_cam/color_image": compressed_head_color_image,
@@ -361,10 +362,11 @@ class ZmqServer:
             sum_time += dt
             steps += 1
             t0 = t1
-            # if self.verbose or steps % self.fast_report_steps == 0:
-            print(
-                f"[SEND SERVO STATE] time taken = {dt} avg = {sum_time/steps} rate={1/(sum_time/steps)}"
-            )
+            # if self.verbose or steps % self.fast_report_steps == 1:
+            if self.verbose or steps % 100 == 1:
+                print(
+                    f"[SEND SERVO STATE] time taken = {dt} avg = {sum_time/steps} rate={1/(sum_time/steps)}"
+                )
 
             time.sleep(1e-5)
             t0 = timeit.default_timer()

@@ -396,13 +396,13 @@ class StretchRosInterface(Node):
             self.ee_rgb_cam = RosCamera(
                 self,
                 self._ee_color_topic,
-                rotations=STRETCH_HEAD_CAMERA_ROTATIONS,
+                rotations=0,
                 image_ext="/image_rect_raw",
             )
             self.ee_dpt_cam = RosCamera(
                 self,
                 self._ee_depth_topic,
-                rotations=STRETCH_HEAD_CAMERA_ROTATIONS,
+                rotations=0,
                 image_ext="/image_raw",
             )
         else:
