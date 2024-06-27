@@ -7,6 +7,7 @@ import datetime
 import os
 import pickle
 import time
+import timeit
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -17,7 +18,6 @@ from atomicwrites import atomic_write
 from loguru import logger
 from PIL import Image
 from torchvision import transforms
-from transformers import Owlv2ForObjectDetection, Owlv2Processor
 
 from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
@@ -34,6 +34,7 @@ from home_robot.motion import (
     Shortcut,
     SimplifyXYT,
 )
+from home_robot.perception import OvmmPerception
 from home_robot.perception.encoders import get_encoder
 from home_robot.utils.demo_chat import (
     DemoChat,
@@ -41,79 +42,6 @@ from home_robot.utils.demo_chat import (
     stop_demo_ui_server,
 )
 from home_robot.utils.threading import Interval
-
-
-def publish_obs(
-    model: SparseVoxelMapNavigationSpace,
-    path: str,
-    state: str,
-    timestep: int,
-    target_id: Dict[str, int] = None,
-):
-    """publish observation for use by the UI. For now this works by writing files to disk."""
-    # NOTE: this requires 'pip install atomicwrites'
-    with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
-        instances = model.voxel_map.get_instances()
-        model_obs = model.voxel_map.observations[-1]
-        if len(instances) > 0:
-            bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
-            bounds = torch.stack(bounds, dim=0)
-            names = torch.stack(names, dim=0).unsqueeze(-1)
-            scores = torch.tensor([ins.score for ins in instances])
-            embeds = (
-                torch.stack(
-                    [
-                        ins.get_image_embedding(aggregation_method="mean")
-                        for ins in instances
-                    ]
-                )
-                .cpu()
-                .detach()
-            )
-        else:
-            bounds = torch.zeros(0, 3, 2)
-            names = torch.zeros(0, 1)
-            scores = torch.zeros(
-                0,
-            )
-            embeds = torch.zeros(0, 512)
-
-        # Map
-        obstacles, explored = model.voxel_map.get_2d_map()
-        obstacles = obstacles.int()
-        explored = explored.int()
-
-        logger.info(f"Saving observation to pickle file: {f'{path}/{timestep}.pkl'}")
-        pickle.dump(
-            dict(
-                limited_obs=False,
-                rgb=model_obs.rgb.cpu().detach(),
-                depth=model_obs.depth.cpu().detach(),
-                instance_image=model_obs.instance.cpu().detach(),
-                instance_classes=model_obs.instance_classes.cpu().detach(),
-                instance_scores=model_obs.instance_scores.cpu().detach(),
-                camera_pose=model_obs.camera_pose.cpu().detach(),
-                camera_K=model_obs.camera_K.cpu().detach(),
-                xyz_frame=model_obs.xyz_frame,
-                box_bounds=bounds,
-                box_names=names,
-                box_scores=scores,
-                box_embeddings=embeds,
-                obstacles=obstacles.cpu().detach(),
-                explored=explored.cpu().detach(),
-                current_state=state,
-                target_id=target_id,
-            ),
-            f,
-        )
-
-    # Print out all the instances we have seen
-    for i, instance in enumerate(model.voxel_map.get_instances()):
-        for j, view in enumerate(instance.instance_views):
-            filename = f"{path}/instances/instance{i}_view{j}.png"
-            if not os.path.exists(filename):
-                image = Image.fromarray(view.cropped_image.byte().cpu().numpy())
-                image.save(filename)
 
 
 class RobotAgent:
@@ -124,8 +52,8 @@ class RobotAgent:
     def __init__(
         self,
         robot: RobotClient,
-        semantic_sensor,
         parameters: Dict[str, Any],
+        semantic_sensor: Optional[OvmmPerception] = None,
         grasp_client: Optional[GraspClient] = None,
         voxel_map: Optional[SparseVoxelMap] = None,
         rpc_stub=None,
@@ -188,6 +116,7 @@ class RobotAgent:
                 derivative_filter_threshold=parameters.get(
                     "filters/derivative_filter_threshold", 0.5
                 ),
+                use_instance_memory=(self.semantic_sensor is not None),
                 instance_memory_kwargs={
                     "min_pixels_for_instance_view": parameters.get(
                         "min_pixels_for_instance_view", 100
@@ -240,26 +169,6 @@ class RobotAgent:
         os.makedirs(self.path, exist_ok=True)
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
 
-        # Assume this will only be needed for hw demo, but not for sim
-        if parameters["start_ui_server"]:
-            with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
-                pickle.dump(self.semantic_sensor.seg_id_to_name, f)
-
-        if parameters["start_ui_server"]:
-            start_demo_ui_server()
-        if parameters["chat"]:
-            self.chat = DemoChat(f"{self.path}/demo_chat.json")
-            if self.parameters["limited_obs_publish_sleep"] > 0:
-                self._publisher = Interval(
-                    self.publish_limited_obs,
-                    sleep_time=self.parameters["limited_obs_publish_sleep"],
-                )
-            else:
-                self._publisher = None
-        else:
-            self.chat = None
-            self._publisher = None
-
         self.openai_key = None
         self.task = None
         # disable owlvit for now
@@ -309,13 +218,16 @@ class RobotAgent:
         logger.info("Rotate in place")
         if steps <= 0:
             return False
+
+        # Put it in navigation posture
+        self.robot.move_to_nav_posture()
+
         step_size = 2 * np.pi / steps
         i = 0
         while i < steps:
             self.robot.navigate_to([0, 0, step_size], relative=True, blocking=True)
-            # TODO remove debug code
-            # print(i, self.robot.get_base_pose())
             self.update()
+
             if self.robot.last_motion_failed():
                 # We have a problem!
                 self.robot.navigate_to([-0.1, 0, 0], relative=True, blocking=True)
@@ -602,17 +514,11 @@ class RobotAgent:
 
     def say(self, msg: str):
         """Provide input either on the command line or via chat client"""
-        if self.chat is not None:
-            self.chat.output(msg)
-        else:
-            print(msg)
+        print(msg)
 
     def ask(self, msg: str) -> str:
         """Receive input from the user either via the command line or something else"""
-        if self.chat is not None:
-            return self.chat.input(msg)
-        else:
-            return input(msg)
+        return input(msg)
 
     def get_command(self):
         if (
@@ -621,21 +527,6 @@ class RobotAgent:
             return self.parameters["command"]
         else:
             return self.ask("please type any task you want the robot to do: ")
-
-    def __del__(self):
-        """Clean up at the end if possible"""
-        self.finish()
-
-    def finish(self):
-        """Clean up at the end if possible"""
-        print("Finishing different processes:")
-        if self.parameters["start_ui_server"]:
-            print("- Stopping UI server...")
-            stop_demo_ui_server()
-        if self._publisher is not None:
-            print("- Stopping publisher...")
-            self._publisher.cancel()
-        print("... Done.")
 
     def publish_limited_obs(self):
         obs = self.robot.get_observation()
@@ -656,29 +547,28 @@ class RobotAgent:
 
     def update(self, visualize_map=False):
         """Step the data collector. Get a single observation of the world. Remove bad points, such as those from too far or too near the camera. Update the 3d world representation."""
-        obs = self.robot.get_observation()
+        t0 = timeit.default_timer()
+        while True:
+            obs = self.robot.get_observation()
+            if obs is not None:
+                break
+            else:
+                time.sleep(0.1)
+            t1 = timeit.default_timer()
+            dt = t1 - t0
+            if dt > 5:
+                logger.error("Failed to get observation")
+                return False
         self.obs_history.append(obs)
         self.obs_count += 1
-        obs_count = self.obs_count
         # Semantic prediction
-        obs = self.semantic_sensor.predict(obs)
+        if self.semantic_sensor is not None:
+            obs = self.semantic_sensor.predict(obs)
         self.voxel_map.add_obs(obs)
         # Add observation - helper function will unpack it
         if visualize_map:
             # Now draw 2d maps to show waht was happening
             self.voxel_map.get_2d_map(debug=True)
-
-        # Send message to user interface
-        if self.chat is not None:
-            publish_obs(self.space, self.path, self.current_state, obs_count)
-
-        # self.save_svm(".")
-        # TODO: remove stupid debug things
-        # instances = self.voxel_map.get_instances()
-        # for ins in instances:
-        #     if len(ins.instance_views) >= 10:
-        #         import pdb; pdb.set_trace()
-        # self.voxel_map.show()
 
     def plan_to_instance(
         self,
@@ -785,14 +675,17 @@ class RobotAgent:
         self.robot.move_to_nav_posture()
         start = self.robot.get_base_pose()
         start_is_valid = self.space.is_valid(start, verbose=True)
-        start_is_valid_retries = 5
+        start_is_valid_retries = 1
         while not start_is_valid and start_is_valid_retries > 0:
-            print(f"Start {start} is not valid. back up a bit.")
-            self.robot.navigate_to([-0.1, 0, 0], relative=True)
+            print(f"Start {start} is not valid. Try to back up a bit.")
+            self.robot.navigate_to([-0.1, 0, 0], relative=True, blocking=True)
             # Get the current position in case we are still invalid
             start = self.robot.get_base_pose()
             start_is_valid = self.space.is_valid(start, verbose=True)
             start_is_valid_retries -= 1
+        if not start_is_valid:
+            print("Robot is unable to find a good start position; something is wrong!")
+            breakpoint()
         res = None
 
         # Just terminate here - motion planning issues apparently!
@@ -866,6 +759,10 @@ class RobotAgent:
 
     def print_found_classes(self, goal: Optional[str] = None):
         """Helper. print out what we have found according to detic."""
+        if self.semantic_sensor is None:
+            logger.warning("Tried to print classes without semantic sensor!")
+            return
+
         instances = self.voxel_map.get_instances()
         if goal is not None:
             print(f"Looking for {goal}.")
@@ -876,17 +773,16 @@ class RobotAgent:
             print(i, name, instance.score)
 
     def start(self, goal: Optional[str] = None, visualize_map_at_start: bool = False):
-        if self._publisher is not None:
-            self._publisher.start()
-        # Tuck the arm away
-        print("Sending arm to  home...")
-        self.robot.switch_to_manipulation_mode()
 
         # Call the robot's own startup hooks
         started = self.robot.start()
         if started:
             # update here
             self.update()
+
+        # Tuck the arm away
+        print("Sending arm to  home...")
+        self.robot.switch_to_manipulation_mode()
 
         # Add some debugging stuff - show what 3d point clouds look like
         if visualize_map_at_start:
@@ -903,6 +799,7 @@ class RobotAgent:
         # Move the robot into navigation mode
         self.robot.switch_to_navigation_mode()
         print("- Update map after switching to navigation posture")
+
         # self.update(visualize_map=visualize_map_at_start)  # Append latest observations
         self.update(visualize_map=False)  # Append latest observations
 
