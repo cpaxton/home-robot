@@ -35,7 +35,7 @@ def plan_to_deltas(xyt0, plan):
         xyt0 = xyt1
 
 
-def add_raw_obs_to_voxel_map(obs_history, voxel_map):
+def add_raw_obs_to_voxel_map(obs_history, voxel_map, perception_config):
     key_obs = []
     num_obs = len(obs_history["rgb"])
     video_frames = []
@@ -62,13 +62,14 @@ def add_raw_obs_to_voxel_map(obs_history, voxel_map):
         )
         video_frames.append(obs_history["rgb"][obs_id].numpy())
     images_to_video(video_frames, "output_video.mp4", fps=10)
-    config, semantic_sensor = create_semantic_sensor()
+    config, semantic_sensor = create_semantic_sensor(config_path=perception_config)
     voxel_map.reset()
     key_obs = key_obs[::3]  # TODO: set frame skip param in config
     for idx, obs in enumerate(key_obs):
         # image_array = np.array(obs.rgb, dtype=np.uint8)
         # image = Image.fromarray(image_array)
         # image.show()
+        print (f'processing frame {idx}')
         obs = semantic_sensor.predict(obs)
         voxel_map.add_obs(obs)
 
@@ -114,8 +115,15 @@ def images_to_video(image_list, output_path, fps=30):
     "--config-path",
     "-c",
     type=click.Path(),
-    default="src/home_robot_hw/configs/default.yaml",
+    default="src/home_robot/configs/default_planner.yaml",
     help="Path to planner config.",
+)
+@click.option(
+    "--perception-config",
+    "-pc",
+    type=click.Path(),
+    default="src/home_robot/configs/perception.yaml",
+    help="Path to perception config.",
 )
 @click.option(
     "--frame",
@@ -131,10 +139,11 @@ def images_to_video(image_list, output_path, fps=30):
 @click.option("--test-vlm", type=bool, is_flag=True, default=False)
 @click.option("--show-instances", type=bool, is_flag=True, default=False)
 @click.option("--query", "-q", type=str, default="")
-@click.option("--pkl-not-obs", "-p", type=bool, is_flag=True, default=False)
+@click.option("--pkl-not-obs", type=bool, is_flag=True, default=False)
 def main(
     input_path,
     config_path,
+    perception_config,
     voxel_size: float = 0.01,
     show_maps: bool = True,
     pkl_is_svm: bool = True,
@@ -165,10 +174,8 @@ def main(
     if len(config_path) > 0:
         print("- Load parameters")
         parameters = get_parameters(config_path)
-        print(parameters)
         agent = RobotAgent(
             dummy_robot,
-            None,
             parameters,
             rpc_stub=None,
             grasp_client=None,
@@ -181,7 +188,7 @@ def main(
                 "Reading from pkl file that doesn't include homerobot observations..."
             )
             obs_history = pickle.load(input_path.open("rb"))
-            voxel_map = add_raw_obs_to_voxel_map(obs_history, voxel_map)
+            voxel_map = add_raw_obs_to_voxel_map(obs_history, voxel_map, perception_config)
 
         elif not pkl_is_svm:
             print("Reading from pkl file of raw observations...")
@@ -191,9 +198,9 @@ def main(
         voxel_map = SparseVoxelMap(resolution=voxel_size)
 
     # TODO: read this from file or something
-    # x0 = np.array([0, -0.5, 0])  # for room1, room4
+    x0 = np.array([0, -0.5, 0])  # for room1, room4
     # x0 = np.array([-1.9, -0.8, 0])  # for room2
-    x0 = np.array([0, 0.5, 0])  # for room3, room5
+    # x0 = np.array([0, 0.5, 0])  # for room3, room5
     start_xyz = [x0[0], x0[1], 0]
 
     if agent is not None:

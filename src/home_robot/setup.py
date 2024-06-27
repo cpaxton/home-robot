@@ -5,23 +5,19 @@
 from setuptools import find_packages, setup
 
 install_requires = [
-    "numpy",
-    "scipy",
+    "numpy==1.26.4",
+    "scipy==1.14.0",
     "hydra-core",
     "yacs",
-    "h5py",
     "pybullet",
     "pygifsicle",
-    "open3d",
-    "numpy-quaternion==2022.4.3",
+    "open3d==0.18.0",
+    "scikit-image",
     "pybind11-global",
-    "sophuspy",
-    # "trimesh",
+    "sophuspy==1.2.0",
+    "trimesh==4.4.0",
     "pin>=2.6.17",
-    # "torch_cluster",
-    # "torch_scatter",
-    # "pillow==9.5.0",  # For Detic compatibility
-    "pyqt6"
+    "pillow==9.5.0",  # For Detic compatibility
 ]
 
 setup(

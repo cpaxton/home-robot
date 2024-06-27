@@ -72,3 +72,10 @@ class DummyStretchClient(RobotClient):
     ):
         """Open loop trajectory execution"""
         raise NotImplementedError()
+    
+    def get_base_pose(self) -> np.ndarray:
+        """Get the current pose of the base"""
+        pass
+
+    def switch_to_manipulation_mode(self):
+        pass
