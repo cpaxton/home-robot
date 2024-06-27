@@ -9,6 +9,7 @@ import random
 from pathlib import Path
 
 import click
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
@@ -37,31 +38,68 @@ def plan_to_deltas(xyt0, plan):
 def add_raw_obs_to_voxel_map(obs_history, voxel_map):
     key_obs = []
     num_obs = len(obs_history["rgb"])
-
+    video_frames = []
     for obs_id in range(num_obs):
+        pose = obs_history["camera_poses"][obs_id]
+        # flip z up
+        # pose = np.dot(
+        #     np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]), pose
+        # )
+        pose[2, 3] += 1.2  # for room1 and room2, room4, room5
+        # pose[2,3] = pose[2,3] # for room3
         key_obs.append(
             Observations(
                 rgb=obs_history["rgb"][obs_id].numpy(),
-                gps=obs_history["base_poses"][obs_id][:2].numpy(),
-                compass=[obs_history["base_poses"][obs_id][2].numpy()],
-                xyz=obs_history["xyz"][obs_id].numpy(),
+                # gps=obs_history["base_poses"][obs_id][:2].numpy(),
+                gps=pose[:2, 3],
+                # compass=[obs_history["base_poses"][obs_id][2].numpy()],
+                compass=[np.arctan2(pose[1, 0], pose[0, 0])],
+                xyz=None,
                 depth=obs_history["depth"][obs_id].numpy(),
-                camera_pose=obs_history["camera_poses"][obs_id].numpy(),
+                camera_pose=pose,
                 camera_K=obs_history["camera_K"][obs_id].numpy(),
             )
         )
+        video_frames.append(obs_history["rgb"][obs_id].numpy())
+    images_to_video(video_frames, "output_video.mp4", fps=10)
     config, semantic_sensor = create_semantic_sensor()
     voxel_map.reset()
-    key_obs = key_obs[::2]  # TODO: set frame skip param in config
-    # key_obs = key_obs[35:38]
+    key_obs = key_obs[::3]  # TODO: set frame skip param in config
     for idx, obs in enumerate(key_obs):
         # image_array = np.array(obs.rgb, dtype=np.uint8)
         # image = Image.fromarray(image_array)
         # image.show()
         obs = semantic_sensor.predict(obs)
         voxel_map.add_obs(obs)
-    print(len(voxel_map.get_instances()))
+
     return voxel_map
+
+
+def images_to_video(image_list, output_path, fps=30):
+    """
+    Convert a list of numpy arrays (images) into a video.
+    """
+    if not image_list:
+        raise ValueError("The image list is empty")
+
+    # Get the height, width, and channels of the first image
+    height, width, channels = image_list[0].shape
+
+    # Define the codec and create VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # You can also use 'XVID' for .avi files
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    for image in image_list:
+        # Ensure the image has the same shape as the first image
+        if image.shape != (height, width, channels):
+            raise ValueError("All images must have the same dimensions")
+        if image.shape[2] == 3:  # Check if the image has 3 channels (RGB)
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        out.write(image)
+
+    # Release everything if job is finished
+    out.release()
+    print(f"Video saved at {output_path}")
 
 
 @click.command()
@@ -153,12 +191,9 @@ def main(
         voxel_map = SparseVoxelMap(resolution=voxel_size)
 
     # TODO: read this from file or something
-    # x0 = np.array([0, 0, 0])
-    x0 = np.array([1, -3, 0])
-    # x0 = np.array([2.6091852, 3.2328937, 0.8379814])
-    # x0 = np.array([3.1000001, 0.0, 4.2857614])
-    # x0 = np.array([0.0, -0.0, 1.5707968])
-    # x0 = np.array([1.1499997, -0.60000074, -1.4168407])
+    # x0 = np.array([0, -0.5, 0])  # for room1, room4
+    # x0 = np.array([-1.9, -0.8, 0])  # for room2
+    x0 = np.array([0, 0.5, 0])  # for room3, room5
     start_xyz = [x0[0], x0[1], 0]
 
     if agent is not None:
