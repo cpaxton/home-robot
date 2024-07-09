@@ -35,7 +35,7 @@ def plan_to_deltas(xyt0, plan):
         xyt0 = xyt1
 
 
-def add_raw_obs_to_voxel_map(obs_history, voxel_map, perception_config):
+def add_raw_obs_to_voxel_map(obs_history, voxel_map, semantic_sensor):
     key_obs = []
     num_obs = len(obs_history["rgb"])
     video_frames = []
@@ -62,9 +62,9 @@ def add_raw_obs_to_voxel_map(obs_history, voxel_map, perception_config):
         )
         video_frames.append(obs_history["rgb"][obs_id].numpy())
     images_to_video(video_frames, "output_video.mp4", fps=10)
-    config, semantic_sensor = create_semantic_sensor(config_path=perception_config)
+
     voxel_map.reset()
-    key_obs = key_obs[::3]  # TODO: set frame skip param in config
+    key_obs = key_obs[:3]  # TODO: set frame skip param in config
     for idx, obs in enumerate(key_obs):
         # image_array = np.array(obs.rgb, dtype=np.uint8)
         # image = Image.fromarray(image_array)
@@ -174,24 +174,34 @@ def main(
     if len(config_path) > 0:
         print("- Load parameters")
         parameters = get_parameters(config_path)
-        agent = RobotAgent(
-            dummy_robot,
-            parameters,
-            rpc_stub=None,
-            grasp_client=None,
-            voxel_map=loaded_voxel_map,
-        )
-        voxel_map = agent.voxel_map
 
         if pkl_not_obs:
             print(
                 "Reading from pkl file that doesn't include homerobot observations..."
             )
             obs_history = pickle.load(input_path.open("rb"))
-            voxel_map = add_raw_obs_to_voxel_map(obs_history, voxel_map, perception_config)
+            _, semantic_sensor = create_semantic_sensor(config_path=perception_config)
+            agent = RobotAgent(
+                dummy_robot,
+                parameters,
+                rpc_stub=None,
+                grasp_client=None,
+                voxel_map=loaded_voxel_map,
+                semantic_sensor=semantic_sensor,
+            )
+            voxel_map = agent.voxel_map
+            voxel_map = add_raw_obs_to_voxel_map(obs_history, voxel_map, semantic_sensor)
 
         elif not pkl_is_svm:
             print("Reading from pkl file of raw observations...")
+            agent = RobotAgent(
+                dummy_robot,
+                parameters,
+                rpc_stub=None,
+                grasp_client=None,
+                voxel_map=loaded_voxel_map,
+            )
+            voxel_map = agent.voxel_map
             voxel_map.read_from_pickle(input_path, num_frames=frame)
     else:
         agent = None
