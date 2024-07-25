@@ -131,6 +131,7 @@ class RobotAgent:
                     "open_vocab_cat_map_file": parameters.get(
                         "open_vocab_cat_map_file", None
                     ),
+                    "use_visual_feat": parameters.get("use_visual_feat", False),
                 },
             )
 
@@ -316,6 +317,7 @@ class RobotAgent:
                     )
                 else:
                     actions = output.split("; ")
+                    plt.clf()
                     for action_id, action in enumerate(actions):
                         crop_id = int(re.search(r"img_(\d+)", action).group(1))
                         global_id = world_representation.object_images[
@@ -329,8 +331,8 @@ class RobotAgent:
                         )
                         plt.title(action.split("(")[0] + f" instance {global_id}")
                         plt.axis("off")
-                    plt.suptitle(self.task)
-                    plt.show()
+                    plt.suptitle(f'Task: {self.task}')
+                    plt.savefig('plan.png')
         else:
             assert (
                 self.rpc_stub is not None
@@ -885,7 +887,7 @@ class RobotAgent:
         if debug:
             for idx_a, idx_b, rel in relationships:
                 import matplotlib.pyplot as plt
-
+                plt.clf()
                 plt.subplot(1, 2, 1)
                 plt.imshow(
                     (

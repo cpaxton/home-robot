@@ -10,6 +10,9 @@ from pathlib import Path
 
 import click
 import cv2
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
@@ -35,7 +38,9 @@ def plan_to_deltas(xyt0, plan):
         xyt0 = xyt1
 
 
-def add_raw_obs_to_voxel_map(obs_history, voxel_map, semantic_sensor):
+def add_raw_obs_to_voxel_map(
+    obs_history, voxel_map, semantic_sensor, num_frames, frame_skip
+):
     key_obs = []
     num_obs = len(obs_history["rgb"])
     video_frames = []
@@ -61,15 +66,17 @@ def add_raw_obs_to_voxel_map(obs_history, voxel_map, semantic_sensor):
             )
         )
         video_frames.append(obs_history["rgb"][obs_id].numpy())
-    images_to_video(video_frames, "output_video.mp4", fps=10)
+    images_to_video(
+        video_frames[: min(frame_skip * num_frames, len(video_frames))],
+        "output_video.mp4",
+        fps=10,
+    )
 
     voxel_map.reset()
-    key_obs = key_obs[:3]  # TODO: set frame skip param in config
+    key_obs = key_obs[::frame_skip]
+    key_obs = key_obs[: min(num_frames, len(key_obs))]
     for idx, obs in enumerate(key_obs):
-        # image_array = np.array(obs.rgb, dtype=np.uint8)
-        # image = Image.fromarray(image_array)
-        # image.show()
-        print (f'processing frame {idx}')
+        print(f"processing frame {idx}")
         obs = semantic_sensor.predict(obs)
         voxel_map.add_obs(obs)
 
@@ -132,6 +139,13 @@ def images_to_video(image_list, output_path, fps=30):
     default=-1,
     help="number of frames to read",
 )
+@click.option(
+    "--frame_skip",
+    "-fs",
+    type=int,
+    default=1,
+    help="number of frames to skip",
+)
 @click.option("--show-svm", "-s", type=bool, is_flag=True, default=False)
 @click.option("--pkl-is-svm", "-p", type=bool, is_flag=True, default=False)
 @click.option("--test-planning", type=bool, is_flag=True, default=False)
@@ -152,6 +166,7 @@ def main(
     test_sampling: bool = False,
     test_vlm: bool = False,
     frame: int = -1,
+    frame_skip: int = 1,
     show_svm: bool = False,
     try_to_plan_iter: int = 10,
     show_instances: bool = False,
@@ -190,7 +205,13 @@ def main(
                 semantic_sensor=semantic_sensor,
             )
             voxel_map = agent.voxel_map
-            voxel_map = add_raw_obs_to_voxel_map(obs_history, voxel_map, semantic_sensor)
+            voxel_map = add_raw_obs_to_voxel_map(
+                obs_history,
+                voxel_map,
+                semantic_sensor,
+                num_frames=frame,
+                frame_skip=frame_skip,
+            )
 
         elif not pkl_is_svm:
             print("Reading from pkl file of raw observations...")
@@ -236,6 +257,7 @@ def main(
         obstacles, explored = voxel_map.get_2d_map(debug=False)
         frontier, outside, traversible = space.get_frontier()
 
+        plt.clf()
         plt.subplot(2, 2, 1)
         plt.imshow(explored)
         plt.axis("off")
@@ -256,7 +278,7 @@ def main(
         plt.axis("off")
         plt.title("Traversible")
 
-        plt.show()
+        plt.savefig("map.png")
 
         if test_planning:
 

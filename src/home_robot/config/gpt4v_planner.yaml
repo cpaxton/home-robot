@@ -1,10 +1,12 @@
 # Encoder setup
 # Encoder is used to compute per-object embeddings.
-encoder: "clip"
-encoder_args: "ViT-B/32"
+encoder: "dinov2siglip"
+encoder_args: "google/siglip-base-patch16-224"
+# encoder: "clip"
+# encoder_args: "ViT-B/32"
 
 # Sparse Voxel Map parameters
-voxel_size: 0.05
+voxel_size: 0.01
 obs_min_height: 0.1  # Ignore things less than this high
 obs_max_height: 1.8  # Ignore things over this height (eg ceilings)
 obs_min_density: 5  # This many points makes it an obstacle
@@ -18,6 +20,7 @@ min_instance_height: 0.4
 max_instance_height: 1.5
 # open_vocab_cat_map_file: projects/real_world_ovmm/configs/open_vocab_cat_map.json
 open_vocab_cat_map_file: projects/real_world_ovmm/configs/example_cat_map.json
+use_visual_feat: True
 
 # Padding
 pad_obstacles: 2 # was 5

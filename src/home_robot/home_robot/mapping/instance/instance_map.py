@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple, Union
+import torch.nn as nn
 
 import cv2
 import numpy as np
@@ -49,11 +50,11 @@ class ViewMatchingConfig:
 
     box_match_mode: Bbox3dOverlapMethodEnum = Bbox3dOverlapMethodEnum.ONE_SIDED_IOU
     box_overlap_eps: float = 1e-7
-    box_min_iou_thresh: float = 0.4
-    box_overlap_weight: float = 0.15
+    box_min_iou_thresh: float = 0.1
+    box_overlap_weight: float = 0.5
 
-    visual_similarity_weight: float = 1.0
-    min_similarity_thresh: float = 0.85
+    visual_similarity_weight: float = 0.5
+    min_similarity_thresh: float = 0.5
 
 
 def get_similarity(
@@ -72,21 +73,26 @@ def get_similarity(
         overlap_eps=view_matching_config.box_overlap_eps,
         mode=view_matching_config.box_match_mode,
     )
-    # print (f'bbox score: {overlap_similarity}')
+    print (f'bbox score: {overlap_similarity}')
     similarity = overlap_similarity * view_matching_config.box_overlap_weight
 
     if view_matching_config.visual_similarity_weight > 0.0:
-        visual_similarity = dot_product_similarity(
-            visual_embedding1, visual_embedding2, normalize=False
-        )
-        # print (f'clip score: {visual_similarity}')
+        # old_visual_similarity = dot_product_similarity(
+        #     visual_embedding1, visual_embedding2, normalize=False
+        # )
+        # breakpoint()
+        visual_similarity = nn.CosineSimilarity(dim=1)(
+            visual_embedding1, torch.stack(visual_embedding2, dim=0)
+        ).unsqueeze(0)
+        print(f"clip score: {visual_similarity}")
+        # print (f'old: {old_visual_similarity}')
         # Handle the case where there is no embedding to examine
         # If we return visual similarity, only then do we use it
         if visual_similarity is not None:
             visual_similarity[
                 overlap_similarity < view_matching_config.box_min_iou_thresh
             ] = 0.0
-            # print (f'valid clip score: {visual_similarity}')
+            print (f'valid clip score: {visual_similarity}')
             similarity += (
                 visual_similarity * view_matching_config.visual_similarity_weight
             )
@@ -137,6 +143,7 @@ class InstanceMemory:
         min_instance_thickness: float = 0.01,
         min_instance_height: float = 0.1,
         max_instance_height: float = 1.8,
+        use_visual_feat: bool = False,
         open_vocab_cat_map_file: str = None,
     ):
         """See class definition for information about InstanceMemory
@@ -171,6 +178,9 @@ class InstanceMemory:
         self.min_instance_thickness = min_instance_thickness
         self.min_instance_height = min_instance_height
         self.max_instance_height = max_instance_height
+        self.use_visual_feat = (
+            use_visual_feat  # whether use visual feat to merge instances
+        )
 
         if isinstance(view_matching_config, dict):
             view_matching_config = ViewMatchingConfig(**view_matching_config)
@@ -363,7 +373,9 @@ class InstanceMemory:
                 # image_array = np.array(instance_view.cropped_image, dtype=np.uint8)
                 # image_debug = Image.fromarray(image_array)
                 # image_debug.show()
-                if instance_view.embedding is not None:
+                if instance_view.visual_feat is not None:
+                    instance_view_embedding = instance_view.visual_feat
+                elif instance_view.embedding is not None:
                     instance_view_embedding = instance_view.embedding / torch.norm(
                         instance_view.embedding, dim=-1, keepdim=True
                     )
@@ -383,7 +395,11 @@ class InstanceMemory:
                         (
                             inst_id,
                             instance.bounds,
-                            instance.get_image_embedding(aggregation_method="mean"),
+                            instance.get_image_embedding(
+                                aggregation_method="mean",
+                                use_visual_feat=self.use_visual_feat,
+                                normalize=False,
+                            ),
                         )  # Slow since we concatenate all global vectors each time for each image instance
                         for inst_id, instance in global_ids_to_instances.items()
                     ]
@@ -651,6 +667,14 @@ class InstanceMemory:
         Debugging:
             If the `debug_visualize` flag is enabled, cropped images and visualization data are saved to disk.
         """
+        # emb1 = encoder.get_visual_feat(np.array(Image.open("test1.png")))
+        # emb2 = encoder.get_visual_feat(np.array(Image.open("test2.png")))
+        # emb3 = encoder.get_visual_feat(np.array(Image.open("test3.png")))
+        # emb4 = encoder.get_visual_feat(np.array(Image.open("test4.png")))
+        # emb5 = encoder.get_visual_feat(np.array(Image.open("test5.png")))
+
+        # breakpoint()
+        # (nn.CosineSimilarity(dim=1)(emb1,emb2).item()+1)/2
         # create a dict for mapping instance ids to categories
         instance_id_to_category_id = {}
         assert (
@@ -774,13 +798,19 @@ class InstanceMemory:
 
             # get embedding
             if encoder is not None:
-                # embedding = encoder.encode_image(cropped_image).to(cropped_image.device)
-                embedding = encoder.encode_image(cropped_image * instance_mask).to(
-                    cropped_image.device
-                )
+                embedding = encoder.encode_image(cropped_image).to(cropped_image.device)
+                # embedding = encoder.encode_image(cropped_image * instance_mask).to(
+                #     cropped_image.device
+                # )
+                if hasattr(encoder, "get_visual_feat"):
+                    visual_feat = encoder.get_visual_feat(cropped_image).to(
+                        cropped_image.device
+                    )
+                else:
+                    visual_feat = None
             else:
                 embedding = None
-
+                visual_feat = None
             # im = Image.fromarray(np.array(cropped_image.to(torch.uint8)))
             # im.save('test1.png')
 
@@ -876,6 +906,7 @@ class InstanceMemory:
                         timestep=self.timesteps[env_id],
                         cropped_image=cropped_image,  # .cpu().numpy(),
                         embedding=embedding,
+                        visual_feat=visual_feat,
                         mask=instance_mask,  # cpu().numpy().astype(bool),
                         point_cloud=point_cloud_instance,  # .cpu().numpy(),
                         point_cloud_rgb=point_cloud_rgb_instance,

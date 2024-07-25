@@ -6,6 +6,7 @@ from typing import Any
 
 from .base_encoder import BaseImageTextEncoder
 from .clip_encoder import ClipEncoder
+from .dinov2_siglip_encoder import Dinov2SigLIPEncoder
 
 
 def get_encoder(encoder_name, args: Any):
@@ -15,3 +16,5 @@ def get_encoder(encoder_name, args: Any):
         from .mtm_encoder import HomeRobotMTMEncoder
 
         return HomeRobotMTMEncoder()
+    elif encoder_name == "dinov2siglip":
+        return Dinov2SigLIPEncoder(args)
